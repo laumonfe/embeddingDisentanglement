@@ -1,0 +1,56 @@
+# FEIDEGGER Project .gitignore
+
+# Exclude the mamba_dataset folder and all its contents
+mamba_dataset/
+mamba_output/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+.conda/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Downloaded images folder
+images/
+
+# HDF5 files (typically large)
+*.h5
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Exported CSV files
+feidegger_dataset.csv
+split7_sample.csv
+
+# Generated plots
+split_distribution.png
+word_frequencies.png
