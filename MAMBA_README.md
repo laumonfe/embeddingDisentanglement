@@ -17,8 +17,10 @@ This script downloads the complete FEIDEGGER dataset and prepares it for trainin
 Install the necessary dependencies:
 
 ```bash
-pip install numpy pandas tqdm pillow requests torch torchvision transformers h5py
+pip install numpy pandas tqdm pillow requests torch torchvision transformers h5py huggingface_hub[hf_xet]
 ```
+
+The `huggingface_hub[hf_xet]` package is optional but recommended for faster downloads from Hugging Face Hub using Xet Storage technology.
 
 ## Usage
 
