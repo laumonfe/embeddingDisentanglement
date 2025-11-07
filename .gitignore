@@ -1,5 +1,5 @@
 # FEIDEGGER Project .gitignore
-umap_bokeh_explorer.ipynb
+
 # Exclude the mamba_dataset folder and all its contents
 mamba_dataset/
 mamba_output/
