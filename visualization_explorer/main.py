@@ -48,12 +48,7 @@ def create_interactive_plot(umap_2d, df):
     
     source = ColumnDataSource(data=source_dict)
     
-    hover = HoverTool(tooltips=[
-        ("Sentence", "@text"),
-        ("Item idx", "@item_idx"),
-        ("Image path", "@image_path"),
-        ("Number", "@label_num"),
-    ])
+    hover = HoverTool(tooltips=[], mode='mouse') 
     
     image_div = Div(text="Click a point to see the image for the selected embedding.", width=400, height=340)
     texts_div = Div(text="<b>All texts for selected item_idx will appear here.</b>", width=400, height=340)
@@ -129,7 +124,7 @@ def create_interactive_plot(umap_2d, df):
     renderer = p.scatter(
         'x', 'y', source=source, size=8, alpha=0.7, color="navy",
         selection_color="orange", selection_alpha=1.0, selection_line_color="red",
-        nonselection_alpha=0.15, nonselection_color="gray"
+        nonselection_alpha=0.15, nonselection_color="gray",hover_color="lime", hover_alpha=1.0
     )
     
     labels = LabelSet(x='x', y='y', text='label_num', source=source,
@@ -151,7 +146,7 @@ def create_interactive_plot(umap_2d, df):
     layout = column(p, clear_btn, row(image_div, texts_div))
     return layout
 
-csv_path = 'feidegger_visualization_data.csv'
+csv_path = "visualization_explorer/feidegger_visualization_data.csv"
 df = load_data(csv_path)
 embeddings = compute_embeddings(df)
 umap_2d = apply_umap(embeddings)
