@@ -95,9 +95,10 @@ if __name__ == "__main__":
     print("Text-to-Image Retrieval Example:")
     #query = "ein wunderschönes und sehr festliches langes Kleid" # "a beautiful and very festive long dress"
     #query = "ein kurzes schwarzes Kleid"  # a short black dress
-    query = "ein glitzerndes und schickes Kleid"  # a glitter and fancy dress
-    query = "ein grünes Samtkleid mit V-Ausschnitt und langen Ärmeln" #"a velvet green dress with a V-neck and long sleeves" 
-    results = retrieve_images_by_text(query, top_k=3)
+    #query = "ein glitzerndes und schickes Kleid"  # a glitter and fancy dress
+    #query = "ein grünes Samtkleid mit V-Ausschnitt und langen Ärmeln" #"a velvet green dress with a V-neck and long sleeves" 
+    query = "A dress that whispers rebellion." #"spring dress perfect for a picnic date"  #"a red dress with floral pattern"
+    results = retrieve_images_by_text(query, top_k=5)
     plot_images(results, "Text-to-Image Retrieval (M-CLIP)")
 
     print("\nImage-to-Image Retrieval Example:")

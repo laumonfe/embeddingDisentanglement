@@ -16,7 +16,7 @@ def load_data(csv_path):
         df['item_idx'] = df.index
     return df
 
-def compute_embeddings(df, embeddings_path='data/feidegger_embeddings.npy', model_name='distiluse-base-multilingual-cased-v2'):
+def compute_embeddings(df, embeddings_path='data/feidegger_embeddings_CLIP.npy', model_name ='sentence-transformers/clip-ViT-B-32-multilingual-v1'):#model_name='distiluse-base-multilingual-cased-v2'):
     if os.path.exists(embeddings_path):
         print(f"Loading embeddings from {embeddings_path} ...")
         embeddings = np.load(embeddings_path)
