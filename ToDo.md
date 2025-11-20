@@ -9,3 +9,6 @@ eda: prettify
 
 https://www.kaggle.com/code/kelde9/sentences-embedding-visualization-how-to-do-it
 https://www.kaggle.com/code/btseytlin/interactive-visualization-with-umap-and-bokeh
+
+
+Filtered dataset to 40958 items with existing images out of 42217 total.
