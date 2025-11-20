@@ -29,11 +29,12 @@ if "feidegger_text_embeddings" in fo.list_datasets():
 dataset = fo.Dataset("feidegger_text_embeddings")
 dataset.add_samples(samples)
 
-# Compute similarity view (optional)
+# Compute similarity view 
 fob.compute_visualization(
     dataset,
-    embeddings=embeddings,
-    brain_key="text_embedding_viz"
+    embeddings=np.array([s.text_embedding for s in dataset]),
+    brain_key="text_embedding_viz", 
+    method="umap"
 )
 
 # Launch the app
