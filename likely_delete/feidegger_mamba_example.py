@@ -23,7 +23,7 @@ import numpy as np
 from tqdm import tqdm
 
 # Import the dataset class from our preparation script
-from feidegger_mamba_prep import FeideggerMambaDataset
+from likely_delete.feidegger_mamba_prep import FeideggerMambaDataset
 
 # Note: For a real implementation, you would use a proper Mamba implementation
 # like mamba-ssm, state-spaces, or similar libraries. This is a simplified example.

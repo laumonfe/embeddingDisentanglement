@@ -3,13 +3,17 @@ import pandas as pd
 from sentence_transformers import SentenceTransformer, losses, InputExample
 from sentence_transformers import util
 from torch.utils.data import DataLoader
+# how to finetune a CLIP model with text-image pairs
 # https://github.com/huggingface/sentence-transformers/blob/1ec4902ddb73a8f33cb5ac2ae0b8f77a930b14d6/examples/training/clip/train_clip.ipynb
-#will that work tho? 
 # https://github.com/ShawhinT/YouTube-Blog/blob/main/multimodal-ai/4-ft-mm-embeddings/2-finetune_clip_sbert.ipynb
-#inspo 
+
 # Load CSV
 csv_path = "visualization_explorer/feidegger_visualization_data_valid.csv"
 df = pd.read_csv(csv_path)
+
+
+# pre-processing 
+#https://huggingface.co/docs/transformers/main/en/preprocessing
 
 # Build InputExample list
 train_examples = []

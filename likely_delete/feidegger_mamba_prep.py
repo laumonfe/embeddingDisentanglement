@@ -56,7 +56,7 @@ except ImportError:
 
 # Add parent directory to path to import FeideggerCrawler
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from feidegger_crawler import FeideggerCrawler
+from likely_delete.feidegger_crawler import FeideggerCrawler
 
 class FeideggerPreprocessor:
     """

@@ -6,7 +6,7 @@ This script demonstrates how to use the FeideggerCrawler class
 to analyze and work with the FEIDEGGER dataset.
 """
 
-from feidegger_crawler import FeideggerCrawler
+from likely_delete.feidegger_crawler import FeideggerCrawler
 import matplotlib.pyplot as plt
 import numpy as np
 import os
