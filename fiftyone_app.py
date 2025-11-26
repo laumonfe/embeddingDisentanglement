@@ -1,13 +1,16 @@
+import csv
 import fiftyone as fo
 import fiftyone.brain as fob
 import pandas as pd
 import numpy as np
 
 # Load your CSV and embeddings
-csv_path = "visualization_explorer/feidegger_visualization_data_valid.csv"
-text_embeddings_path = "data/feidegger_clip-ViT-B-32-multilingual-v1_text_embeddings_baseline.npy"
-image_embeddings_path = "data/feidegger_clip-ViT-B-32_image_embeddings_baseline.npy"
-
+#csv_path = "visualization_explorer/feidegger_visualization_data_valid.csv"
+# text_embeddings_path = "data/feidegger_clip-ViT-B-32-multilingual-v1_text_embeddings_baseline.npy"
+# image_embeddings_path = "data/feidegger_clip-ViT-B-32_image_embeddings_baseline.npy"
+csv_path = "visualization_explorer/feidegger_visualization_data_valid_test.csv"
+text_embeddings_path = "data/feidegger_clip-ViT-B-32-multilingual-v1_text_embeddings_baseline_test.npy"
+image_embeddings_path = "data/feidegger_clip-ViT-B-32-multilingual-v1_image_embeddings_baseline_test.npy"
 
 df = pd.read_csv(csv_path)
 text_embeddings = np.load(text_embeddings_path)

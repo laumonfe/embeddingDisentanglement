@@ -4,6 +4,8 @@ output/
 # Exclude the mamba_dataset folder and all its contents
 mamba_dataset/
 mamba_output/
+checkpoints/
+data/
 
 # Python bytecode
 __pycache__/

@@ -1,104 +1,17 @@
-import collections
 import os
-import pandas as pd
 import torch
-
-from PIL import Image
+import collections
 import numpy as np
+import pandas as pd
+from PIL import Image
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from sentence_transformers import SentenceTransformer, util
+from compute_embeddings import load_or_compute_embeddings
 
 
-
-# Paths
-CSV_PATH = "visualization_explorer/feidegger_visualization_data.csv"
-IMG_EMB_PATH = "data/feidegger_clip-ViT-B-32_image_embeddings_baseline.npy"
-TXT_EMB_PATH = "data/feidegger_clip-ViT-B-32-multilingual-v1_text_embeddings_baseline.npy"
-
-# We use the original clip-ViT-B-32 for encoding images
-img_model = SentenceTransformer('clip-ViT-B-32')
-# Our text embedding model is aligned to the img_model and maps 50+
-# languages to the same vector space
-text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
-
-
-#Load dataset
-df = pd.read_csv(CSV_PATH)
-image_paths = df['image_path'].tolist()
-texts = df['text'].tolist()
-
-
-# Get indices of valid images in the original DataFrame
-valid_indices = [i for i, img_path in enumerate(image_paths) if os.path.exists(img_path)]
-
-# Create a filtered DataFrame as a copy of the original, only with valid items
-filtered_df = df.iloc[valid_indices].reset_index(drop=True)
-print(f"Filtered dataset to {len(filtered_df)} items with existing images out of {len(df)} total.")
-# Save the filtered DataFrame to a new CSV
-filtered_df.to_csv("visualization_explorer/feidegger_visualization_data_valid.csv", index=False)
-print("Saved filtered DataFrame to visualization_explorer/feidegger_visualization_data_valid.csv")
-
-# Filter for existing images
-filtered_image_paths = []
-filtered_texts = []
-for img_path, text in zip(image_paths, texts):
-    if os.path.exists(img_path):
-        filtered_image_paths.append(img_path)
-        filtered_texts.append(text)
-
-# Compute or load image embeddings
-if os.path.exists(IMG_EMB_PATH):
-    print(f"Loading image embeddings from {IMG_EMB_PATH}")
-    image_embeddings = np.load(IMG_EMB_PATH)
-    # Ensure filtered_image_paths matches loaded embeddings
-    if len(image_embeddings) != len(filtered_image_paths):
-        print("Warning: Loaded image embeddings do not match filtered image paths. Recomputing embeddings.")
-        image_embeddings = []
-        filtered_image_paths = []
-        filtered_texts = []
-elif True:
-    print("Calculating image embeddings...")
-    image_embeddings = []
-    valid_image_paths = []
-    valid_texts = []
-    for img_path, text in tqdm(zip(image_paths, texts), total=len(image_paths)):
-        if not os.path.exists(img_path):
-            continue
-        try:
-            with torch.no_grad():
-                emb = img_model.encode(Image.open(img_path))
-            image_embeddings.append(emb)
-            valid_image_paths.append(img_path)
-            valid_texts.append(text)
-        except Exception as e:
-            print(f"Could not process {img_path}: {e}")
-    image_embeddings = np.array(image_embeddings)
-    filtered_image_paths = valid_image_paths
-    filtered_texts = valid_texts
-    os.makedirs(os.path.dirname(IMG_EMB_PATH), exist_ok=True)
-    np.save(IMG_EMB_PATH, image_embeddings)
-    print(f"Saved image embeddings to {IMG_EMB_PATH}")
-
-# For text embeddings (only for filtered_texts)
-if os.path.exists(TXT_EMB_PATH):
-    print(f"Loading text embeddings from {TXT_EMB_PATH}")
-    text_embeddings = np.load(TXT_EMB_PATH)
-    if len(text_embeddings) != len(filtered_texts):
-        print("Warning: Loaded text embeddings do not match filtered texts. Recomputing embeddings.")
-        with torch.no_grad():
-            text_embeddings = text_model.encode(filtered_texts)
-        os.makedirs(os.path.dirname(TXT_EMB_PATH), exist_ok=True)
-        np.save(TXT_EMB_PATH, text_embeddings)
-else:
-    print("Calculating text embeddings...")
-    with torch.no_grad():
-        text_embeddings = text_model.encode(filtered_texts)
-    os.makedirs(os.path.dirname(TXT_EMB_PATH), exist_ok=True)
-    np.save(TXT_EMB_PATH, text_embeddings)
-    print(f"Saved text embeddings to {TXT_EMB_PATH}")
-
-def retrieve_images_by_text(query, top_k=5):
+def retrieve_images_by_text(query, text_model, image_embeddings, df, top_k=5):
     with torch.no_grad():
         text_emb = text_model.encode([query])
     sims = util.cos_sim(text_emb, image_embeddings)[0]  # shape: (num_images,)
@@ -107,7 +20,7 @@ def retrieve_images_by_text(query, top_k=5):
     seen = set()
     results = []
     for i in sorted_indices:
-        img_path = filtered_image_paths[i]
+        img_path = df["image_path"][i]
         if img_path not in seen:
             seen.add(img_path)
             results.append((img_path, sims[i].item()))
@@ -115,9 +28,9 @@ def retrieve_images_by_text(query, top_k=5):
             break
     return results
 
-def retrieve_images_by_image(image_path, top_k=5):
+def retrieve_images_by_image(query, image_model, image_embeddings, df,  top_k=5):
     with torch.no_grad():
-        image_emb = img_model.encode(Image.open(image_path))
+        image_emb = image_model.encode(query)
     sims = util.cos_sim(image_emb, image_embeddings)[0]  # shape: (num_images,)
 
     # Exclude all images whose embedding is identical to the query embedding
@@ -128,7 +41,7 @@ def retrieve_images_by_image(image_path, top_k=5):
     seen = set()
     results = []
     for i in sorted_indices:
-        img_path = filtered_image_paths[i]
+        img_path = df["image_path"][i]
         if img_path not in seen:
             seen.add(img_path)
             results.append((img_path, sims[i].item()))
@@ -148,7 +61,7 @@ def plot_images(results, title):
     plt.tight_layout()
     plt.show()
 
-import matplotlib.patches as patches
+
 def plot_images(results, title, query=None, query_type="text"):
     n_results = len(results)
     if query_type == "image":
@@ -209,13 +122,27 @@ if __name__ == "__main__":
     # results = retrieve_images_by_image(example_image, top_k=5)
     # plot_images(results, "Image-to-Image Retrieval (M-CLIP)")
 
-    query = "A hauntingly beautiful dress."
+
+    CSV_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\all_split.csv"
+    IMG_EMB_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\clip_image_embeddings_all.npy"
+    TXT_EMB_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\clip_text_embeddings_all.npy"
+
+    img_model = SentenceTransformer('clip-ViT-B-32')
+    text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
+
+    df = pd.read_csv(CSV_PATH)
+    
+    print("Number of images in DataFrame:", len(df))
+    image_embeddings = load_or_compute_embeddings(img_model, df['image_path'].tolist(), IMG_EMB_PATH)
+    text_embeddings = load_or_compute_embeddings(text_model, df['text'].tolist(), TXT_EMB_PATH)
+
+    query = "red dress "
     print("Text-to-Image Retrieval Example:")
-    results = retrieve_images_by_text(query, top_k=5)
+    results = retrieve_images_by_text(query, text_model, image_embeddings, df,  top_k=5)
     plot_images(results, "Text-to-Image Retrieval (M-CLIP)", query=query, query_type="text")
 
     print("\nImage-to-Image Retrieval Example:")
     example_image = results[0][0]
     print(f"Using example image: {example_image}")
-    results = retrieve_images_by_image(example_image, top_k=5)
+    results = retrieve_images_by_image(example_image, img_model, image_embeddings, df, top_k=5)
     plot_images(results, "Image-to-Image Retrieval (M-CLIP)", query=example_image, query_type="image")
