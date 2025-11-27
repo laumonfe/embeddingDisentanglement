@@ -8,19 +8,39 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sentence_transformers import SentenceTransformer, util
-from compute_embeddings import load_or_compute_embeddings
+from compute_embeddings import load_embeddings
 
+
+# def retrieve_images_by_text(query, text_model, image_embeddings, df, top_k=5):
+#     with torch.no_grad():
+#         text_emb = text_model.encode([query])
+#     sims = util.cos_sim(text_emb, image_embeddings)[0]  # shape: (num_images,)
+#     # Get indices sorted by similarity (descending)
+#     sorted_indices = torch.argsort(sims, descending=True).tolist()
+#     seen = set()
+#     results = []
+#     for i in sorted_indices:
+#         img_path = df["image_path"][i]
+#         if img_path not in seen:
+#             seen.add(img_path)
+#             results.append((img_path, sims[i].item()))
+#         if len(results) == top_k:
+#             break
+#     return results
 
 def retrieve_images_by_text(query, text_model, image_embeddings, df, top_k=5):
     with torch.no_grad():
         text_emb = text_model.encode([query])
-    sims = util.cos_sim(text_emb, image_embeddings)[0]  # shape: (num_images,)
+    # Stack all embeddings into a matrix for similarity computation
+    emb_matrix = np.stack([e['embedding'] for e in image_embeddings])
+    sims = util.cos_sim(torch.tensor(text_emb), torch.tensor(emb_matrix))[0]
     # Get indices sorted by similarity (descending)
     sorted_indices = torch.argsort(sims, descending=True).tolist()
     seen = set()
     results = []
     for i in sorted_indices:
-        img_path = df["image_path"][i]
+        idx = image_embeddings[i]['idx']
+        img_path = df.loc[df['item_idx'] == idx, 'image_path'].values[0]
         if img_path not in seen:
             seen.add(img_path)
             results.append((img_path, sims[i].item()))
@@ -28,20 +48,42 @@ def retrieve_images_by_text(query, text_model, image_embeddings, df, top_k=5):
             break
     return results
 
-def retrieve_images_by_image(query, image_model, image_embeddings, df,  top_k=5):
+# def retrieve_images_by_image(query, image_model, image_embeddings, df,  top_k=5):
+#     with torch.no_grad():
+#         image_emb = image_model.encode(query)
+#     sims = util.cos_sim(image_emb, image_embeddings)[0]  # shape: (num_images,)
+
+#     # Exclude all images whose embedding is identical to the query embedding
+#     identical_mask = np.all(image_embeddings == image_emb, axis=1)
+#     sims[identical_mask] = -float("inf")
+
+#     sorted_indices = torch.argsort(sims, descending=True).tolist()
+#     seen = set()
+#     results = []
+#     for i in sorted_indices:
+#         img_path = df["image_path"][i]
+#         if img_path not in seen:
+#             seen.add(img_path)
+#             results.append((img_path, sims[i].item()))
+#         if len(results) == top_k:
+#             break
+#     return results
+
+
+def retrieve_images_by_image(query_image_path, image_model, image_embeddings, df, top_k=5):
     with torch.no_grad():
-        image_emb = image_model.encode(query)
-    sims = util.cos_sim(image_emb, image_embeddings)[0]  # shape: (num_images,)
-
-    # Exclude all images whose embedding is identical to the query embedding
-    identical_mask = np.all(image_embeddings == image_emb, axis=1)
+        query_emb = image_model.encode(Image.open(query_image_path))
+    emb_matrix = np.stack([e['embedding'] for e in image_embeddings])
+    sims = util.cos_sim(torch.tensor(query_emb), torch.tensor(emb_matrix))[0]
+    # Exclude identical images
+    identical_mask = np.all(emb_matrix == query_emb, axis=1)
     sims[identical_mask] = -float("inf")
-
     sorted_indices = torch.argsort(sims, descending=True).tolist()
     seen = set()
     results = []
     for i in sorted_indices:
-        img_path = df["image_path"][i]
+        idx = image_embeddings[i]['idx']
+        img_path = df.loc[df['item_idx'] == idx, 'image_path'].values[0]
         if img_path not in seen:
             seen.add(img_path)
             results.append((img_path, sims[i].item()))
@@ -123,20 +165,21 @@ if __name__ == "__main__":
     # plot_images(results, "Image-to-Image Retrieval (M-CLIP)")
 
 
-    CSV_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\all_split.csv"
-    IMG_EMB_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\clip_image_embeddings_all.npy"
-    TXT_EMB_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\clip_text_embeddings_all.npy"
+    CSV_PATH = r"visualization_explorer/feidegger_visualization_data_valid.csv"
+    IMG_EMB_PATH = r"data\testing\clip_image_embeddings_2.npy"
+    TXT_EMB_PATH = r"data\testing\clip_text_embeddings_2.npy"
 
     img_model = SentenceTransformer('clip-ViT-B-32')
-    text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
+    #text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
+    text_model = SentenceTransformer('clip-ViT-B-32')
 
     df = pd.read_csv(CSV_PATH)
     
-    print("Number of images in DataFrame:", len(df))
-    image_embeddings = load_or_compute_embeddings(img_model, df['image_path'].tolist(), IMG_EMB_PATH)
-    text_embeddings = load_or_compute_embeddings(text_model, df['text'].tolist(), TXT_EMB_PATH)
+    image_embeddings = load_embeddings(IMG_EMB_PATH)
+    text_embeddings = load_embeddings(TXT_EMB_PATH)
 
     query = "red dress "
+    #query= "ein fusslanges kleid ohne ärmel und einem blaulichem farbmuster das in der mitte eine art pyramidenstimmung erzeugt"
     print("Text-to-Image Retrieval Example:")
     results = retrieve_images_by_text(query, text_model, image_embeddings, df,  top_k=5)
     plot_images(results, "Text-to-Image Retrieval (M-CLIP)", query=query, query_type="text")
