@@ -94,6 +94,17 @@ def plot_images(results, title, query=None, query_type="text"):
         plt.tight_layout()
         plt.show()
 
+def get_split_embeddings(df, image_embeddings, text_embeddings, split_name):
+    """
+    Returns filtered DataFrame and corresponding image/text embeddings for a given split.
+    Matches both 'idx' and 'desc_idx'.
+    """
+    split_df = df[df["split"] == split_name]
+    split_keys = set(zip(split_df["item_idx"], split_df["desc_idx"]))
+    split_image_embeddings = [e for e in image_embeddings if (e['idx'], e['desc_idx']) in split_keys]
+    split_text_embeddings = [e for e in text_embeddings if (e['idx'], e['desc_idx']) in split_keys]
+    return split_df.reset_index(drop=True), np.array(split_image_embeddings, dtype=object), np.array(split_text_embeddings, dtype=object)
+
 
 if __name__ == "__main__":
     #query = "ein wunderschönes und sehr festliches langes Kleid" # "a beautiful and very festive long dress"
@@ -119,6 +130,8 @@ if __name__ == "__main__":
     
     image_embeddings = load_embeddings(IMG_EMB_PATH)
     text_embeddings = load_embeddings(TXT_EMB_PATH)
+    # alternatevly, get a subset of a specific split
+    test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
 
     query = "red dress"
     #query= "ein fusslanges kleid ohne ärmel und einem blaulichem farbmuster das in der mitte eine art pyramidenstimmung erzeugt"
@@ -130,4 +143,15 @@ if __name__ == "__main__":
     example_image = results[0][0]
     print(f"Using example image: {example_image}")
     results = retrieve_images_by_image(example_image, img_model, image_embeddings, df, top_k=5)
+    plot_images(results, "Image-to-Image Retrieval (M-CLIP)", query=example_image, query_type="image")
+
+    ########### Same QUery Only in the test split ###########
+    print("Text-to-Image Retrieval Example Test:")
+    results = retrieve_images_by_text(query, text_model, test_img_emb, test_df,  top_k=5)
+    plot_images(results, "Text-to-Image Retrieval (M-CLIP)", query=query, query_type="text")
+
+    print("\nImage-to-Image Retrieval Example Test:")
+    example_image = results[0][0]
+    print(f"Using example image: {example_image}")
+    results = retrieve_images_by_image(example_image, img_model, test_img_emb, test_df, top_k=5)
     plot_images(results, "Image-to-Image Retrieval (M-CLIP)", query=example_image, query_type="image")

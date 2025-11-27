@@ -56,17 +56,15 @@ def compute_embeddings(text_model, image_model, df, img_emb_save_path, txt_emb_s
 
 if __name__ == "__main__":
 
-    CSV_PATH = "data\embeddings\feidegger_visualization_data.csv"
+    CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
     df = pd.read_csv(CSV_PATH)
 
     img_model = SentenceTransformer('clip-ViT-B-32')
     text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
 
-    emb_dir = r"\data\embeddings\baseline_clip-ViT-B-32-multilingual-v1"
+    emb_dir = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1"
     img_emb_path_all = os.path.join(emb_dir, "image_embeddings_clip-ViT-B-32_baseline.npy")
     txt_emb_path_all = os.path.join(emb_dir,"text_embeddings_clip-ViT-B-32-multilingual-v1_baseline.npy")
 
-    image_embeddings_all, text_embeddings_all = compute_embeddings(
-        text_model, img_model, df, img_emb_path_all, txt_emb_path_all
-    )
+    compute_embeddings(text_model, img_model, df, img_emb_path_all, txt_emb_path_all)
 
