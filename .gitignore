@@ -1,6 +1,7 @@
 # FEIDEGGER Project .gitignore
 # Ignore output folder for finetuned models and results
 output/
+pretrained_models/
 # Exclude the mamba_dataset folder and all its contents
 mamba_dataset/
 mamba_output/
