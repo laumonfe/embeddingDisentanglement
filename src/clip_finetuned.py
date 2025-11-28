@@ -3,6 +3,8 @@ from transformers import CLIPProcessor, CLIPModel, CLIPVisionModel, CLIPTextMode
 from transformers import TrainingArguments, Trainer
 from PIL import Image
 import pandas as pd
+from data_loader import CLIPDataset
+from training_loop import CustomCLIPTrainer
 
 # Load CSV
 csv_path = "visualization_explorer/feidegger_visualization_data_valid.csv"
@@ -35,22 +37,7 @@ with torch.no_grad():
 image_embeds = vision_outputs.last_hidden_state
 text_embeds = text_outputs.last_hidden_state
 
-# For finetuning, you need to create a custom dataset and Trainer
-class CLIPDataset(torch.utils.data.Dataset):
-    def __init__(self, image_paths, texts, processor):
-        self.image_paths = image_paths
-        self.texts = texts
-        self.processor = processor
 
-    def __len__(self):
-        return len(self.image_paths)
-
-    def __getitem__(self, idx):
-        image = Image.open(self.image_paths[idx]).convert("RGB")
-        text = self.texts[idx]
-        inputs = self.processor(text=[text], images=image, return_tensors="pt", padding=True)
-        item = {key: val.squeeze(0) for key, val in inputs.items()}
-        return item
 
 train_dataset = CLIPDataset(image_paths, texts, processor)
 
@@ -76,13 +63,7 @@ training_args = TrainingArguments(
     report_to="none"
 )
 
-# Define a custom Trainer to access both vision and text models
-class CustomCLIPTrainer(Trainer):
-    def compute_loss(self, model, inputs, return_outputs=False):
-        outputs = model(**inputs)
-        # CLIPModel returns logits_per_image and logits_per_text
-        loss = outputs.loss
-        return (loss, outputs) if return_outputs else loss
+
 
 trainer = CustomCLIPTrainer(
     model=clip_model,

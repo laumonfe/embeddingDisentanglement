@@ -13,7 +13,8 @@
 # Add separate heads for each modality, and only allow interaction at a late stage (or not at all).
 
 # Example: Separate bottlenecks and orthogonalization
-
+import torch
+import torch.nn as nn
 
 class DisentangledCLIP(nn.Module):
     def __init__(self, vision_encoder, text_encoder, embed_dim=512):

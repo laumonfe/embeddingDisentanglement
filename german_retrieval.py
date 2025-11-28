@@ -9,10 +9,14 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sentence_transformers import SentenceTransformer, util
 from compute_embeddings import load_embeddings
+from transformers import CLIPProcessor, CLIPModel, CLIPVisionModel, CLIPTextModel, DistilBertModel, DistilBertTokenizer
+from src.clip_utils import clip_encode
+import json
 
 def retrieve_images_by_text(query, text_model, image_embeddings, df, top_k=5):
     with torch.no_grad():
-        text_emb = text_model.encode([query])
+        #text_emb = text_model.encode([query])
+        text_emb = clip_encode(text_model, query, modality="text")
     # Stack all embeddings into a matrix for similarity computation
     emb_matrix = np.stack([e['embedding'] for e in image_embeddings])
     sims = util.cos_sim(torch.tensor(text_emb), torch.tensor(emb_matrix))[0]
@@ -33,7 +37,8 @@ def retrieve_images_by_text(query, text_model, image_embeddings, df, top_k=5):
 
 def retrieve_images_by_image(query_image_path, image_model, image_embeddings, df, top_k=5):
     with torch.no_grad():
-        query_emb = image_model.encode(Image.open(query_image_path))
+        #query_emb = image_model.encode(Image.open(query_image_path))
+        query_emb = clip_encode(image_model, Image.open(query_image_path), modality="image")
     emb_matrix = np.stack([e['embedding'] for e in image_embeddings])
     sims = util.cos_sim(torch.tensor(query_emb), torch.tensor(emb_matrix))[0]
     # Exclude identical images
@@ -123,8 +128,31 @@ if __name__ == "__main__":
     IMG_EMB_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\image_embeddings_clip-ViT-B-32_baseline.npy"
     TXT_EMB_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\text_embeddings_clip-ViT-B-32-multilingual-v1_baseline.npy"
 
-    img_model = SentenceTransformer('clip-ViT-B-32')
-    text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
+    # img_model = SentenceTransformer('clip-ViT-B-32')
+    # text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
+
+
+    img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
+    text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
+
+    # Load vision model and processor
+    img_model = CLIPModel.from_pretrained(img_model_path)
+
+    # Load multilingual text model and tokenizer
+
+    from transformers import DistilBertModel, DistilBertConfig
+    # Load projection config
+    with open("pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1/2_Dense/config.json") as f:
+        proj_cfg = json.load(f)
+    # Load DistilBERT model and tokenizer
+    text_model_path = "pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
+    text_model = DistilBertModel.from_pretrained(text_model_path)
+    # tokenizer = DistilBertTokenizer.from_pretrained(text_model_path)
+
+    # # Load projection weights
+    # PROJ_WEIGHTS_PATH = "pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1/2_Dense/pytorch_model.bin"
+    # projection = torch.nn.Linear(proj_cfg["in_features"], proj_cfg["out_features"], bias=proj_cfg["bias"])
+    # projection.load_state_dict(torch.load(PROJ_WEIGHTS_PATH))
     
     df = pd.read_csv(CSV_PATH)
     
