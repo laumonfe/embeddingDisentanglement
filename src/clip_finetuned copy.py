@@ -4,6 +4,7 @@ from transformers import TrainingArguments, Trainer
 from PIL import Image
 import pandas as pd
 from sentence_transformers import SentenceTransformer, InputExample, losses
+from transformers import CLIPProcessor, CLIPModel, AutoTokenizer
 
 # # Load CSV
 # csv_path = r"data/embeddings/feidegger_visualization_data.csv"
@@ -16,23 +17,26 @@ from sentence_transformers import SentenceTransformer, InputExample, losses
 
 # Load CLIP model and processor
 
-img_model =r'pretrained_models\models--sentence-transformers--clip-ViT-B-32'
-text_model =r'pretrained_models\models--sentence-transformers--clip-ViT-B-32-multilingual-v1'
+#img_model =r'pretrained_models\models--sentence-transformers--clip-ViT-B-32'
+img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
+text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
 
-# Load models
-image_model = CLIPModel.from_pretrained(img_model)
-image_processor = CLIPProcessor.from_pretrained(img_model)
+# Load vision model and processor
+image_model = CLIPModel.from_pretrained(img_model_path)
+image_processor = CLIPProcessor.from_pretrained(img_model_path)
 
-text_model = CLIPModel.from_pretrained(text_model)
-text_processor = CLIPProcessor.from_pretrained(text_model)
-# Access vision and text transformer separately
+# Load multilingual text model and tokenizer
+text_model = CLIPModel.from_pretrained(text_model_path)
+text_tokenizer = AutoTokenizer.from_pretrained(text_model_path)
+
+# Access submodules
 vision_model = image_model.vision_model
-text_model = text_model.text_model
+text_encoder = text_model.text_model
 
 print("VISION")
 print(vision_model)
 print("TEXT")
-print(text_model)
+print(text_encoder)
 
 # # Example: encode one image and one text
 # sample_image = Image.open(image_paths[0]).convert("RGB")
