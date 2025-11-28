@@ -12,6 +12,8 @@ from compute_embeddings import load_embeddings
 from transformers import CLIPProcessor, CLIPModel, CLIPVisionModel, CLIPTextModel, DistilBertModel, DistilBertTokenizer
 from src.clip_utils import clip_encode
 import json
+from transformers import DistilBertModel, DistilBertConfig
+
 
 def retrieve_images_by_text(query, text_model, image_embeddings, df, top_k=5):
     with torch.no_grad():
@@ -139,8 +141,6 @@ if __name__ == "__main__":
     img_model = CLIPModel.from_pretrained(img_model_path)
 
     # Load multilingual text model and tokenizer
-
-    from transformers import DistilBertModel, DistilBertConfig
     # Load projection config
     with open("pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1/2_Dense/config.json") as f:
         proj_cfg = json.load(f)
