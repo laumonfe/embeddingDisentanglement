@@ -4,6 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 from sentence_transformers import SentenceTransformer
+from src.clip_utils import clip_encode
 
 
 
@@ -33,8 +34,8 @@ def compute_embeddings(text_model, image_model, df, img_emb_save_path, txt_emb_s
             print(f"Invalid text for item {item_idx} {desc_idx}")
             continue
         try:
-            img_emb = image_model.encode(Image.open(image_path))
-            text_emb = text_model.encode(text)
+            img_emb = clip_encode(image_model, Image.open(image_path), modality="image")
+            text_emb = clip_encode(text_model, text, modality="text")
             img_embeddings.append({'idx': item_idx, 'desc_idx': desc_idx, 'embedding': np.array(img_emb)})
             text_embeddings.append({'idx': item_idx, 'desc_idx': desc_idx, 'embedding': np.array(text_emb)})
         except Exception as e:

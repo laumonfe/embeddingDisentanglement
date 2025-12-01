@@ -127,15 +127,18 @@ if __name__ == "__main__":
 
 
     CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
-    IMG_EMB_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\image_embeddings_clip-ViT-B-32_baseline.npy"
-    TXT_EMB_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\text_embeddings_clip-ViT-B-32-multilingual-v1_baseline.npy"
-
+    # IMG_EMB_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\image_embeddings_clip-ViT-B-32_baseline.npy"
+    # TXT_EMB_PATH = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1\text_embeddings_clip-ViT-B-32-multilingual-v1_baseline.npy"
+    IMG_EMB_PATH = r"data\embeddings\finetuned_clip-ViT-B-32-multilingual-v1\image_embeddings_clip-ViT-B-32_finetuned.npy"
+    TXT_EMB_PATH = r"data\embeddings\finetuned_clip-ViT-B-32-multilingual-v1\text_embeddings_clip-ViT-B-32-multilingual-v1_finetuned.npy"
     # img_model = SentenceTransformer('clip-ViT-B-32')
     # text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
 
 
-    img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
-    text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
+    img_model_path = r"output\finetuned_vision"
+    #img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
+    #text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
+    text_model_path = r"output\finetuned_text"
 
     # Load vision model and processor
     img_model = CLIPModel.from_pretrained(img_model_path)
