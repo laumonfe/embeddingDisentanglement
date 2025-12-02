@@ -186,7 +186,7 @@ if __name__ == "__main__":
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     
-    writer = SummaryWriter(os.path.join(output_directory,"tensorboard_logs"))
+    writer = SummaryWriter(os.path.join(output_directory,"tensorboard_logs"), comment= "Finetune_CLIP")
 
     num_epochs = 100
     model.train()
