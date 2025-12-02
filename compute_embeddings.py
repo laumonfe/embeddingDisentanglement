@@ -5,7 +5,7 @@ from tqdm import tqdm
 from PIL import Image
 from sentence_transformers import SentenceTransformer
 from src.clip_utils import clip_encode
-
+import torch
 
 
 def load_embeddings(emb_save_path):
@@ -20,6 +20,11 @@ def load_embeddings(emb_save_path):
 
 
 def compute_embeddings(text_model, image_model, df, img_emb_save_path, txt_emb_save_path):
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    image_model = image_model.to(device)
+    text_model = text_model.to(device)
+    
     img_embeddings = []
     text_embeddings = []
     for row in tqdm(df.itertuples(index=False), total=len(df), desc="Computing embeddings..."):
