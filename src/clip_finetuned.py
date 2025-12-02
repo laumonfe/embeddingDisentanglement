@@ -4,7 +4,7 @@ import torch.nn as nn
 import pandas as pd
 from src.data_loader import CLIPDataset
 from torch.utils.data import DataLoader
-from src.utils import load_distilbert_with_projection, load_clipvision_with_projection
+from src.utils import load_distilbert_with_projection, load_distilbert_with_projection_finetuned, load_vision_with_projection, load_pretrained_CLIP_vision
 from transformers import  CLIPModel, DistilBertTokenizer, CLIPProcessor, CLIPVisionModel
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn.utils.rnn import pad_sequence
@@ -43,33 +43,48 @@ class FinetuneCLIP(nn.Module):
         # Save combined model weights
         torch.save(self.state_dict(), os.path.join(save_directory, "pytorch_model.bin"))
 
-        # Save vision encoder weights and config
-        torch.save(self.vision_encoder.state_dict(), os.path.join(save_directory, "vision_encoder/pytorch_model.bin"))
-        vision_config = self.vision_encoder.config.to_dict() if hasattr(self.vision_encoder, "config") else {}
+        # Save vision encoder weights/config using HuggingFace method if available
+        if hasattr(self.vision_encoder, "save_pretrained"):
+            self.vision_encoder.save_pretrained(os.path.join(save_directory, "vision_encoder"))
+        else:
+            print("Saving vision encoder without HuggingFace method.")
+            torch.save(self.vision_encoder.state_dict(), os.path.join(save_directory, "vision_encoder/pytorch_model.bin"))
+            vision_config = self.vision_encoder.config.to_dict() if hasattr(self.vision_encoder, "config") else {}
+            with open(os.path.join(save_directory, "vision_encoder/config.json"), "w", encoding="utf-8") as f:
+                json.dump(vision_config, f, indent=2)
+
         # Save visual projection weights and config if present
         if hasattr(self.vision_encoder, "visual_projection"):
             torch.save(self.vision_encoder.visual_projection.state_dict(), os.path.join(save_directory, "vision_encoder/visual_projection.bin"))
+            vision_config = self.vision_encoder.config.to_dict() if hasattr(self.vision_encoder, "config") else {}
             vision_config["visual_projection"] = {
                 "in_features": self.vision_encoder.visual_projection.in_features,
                 "out_features": self.vision_encoder.visual_projection.out_features,
                 "bias": self.vision_encoder.visual_projection.bias is not None
             }
-        with open(os.path.join(save_directory, "vision_encoder/config.json"), "w", encoding="utf-8") as f:
-            json.dump(vision_config, f, indent=2)
+            with open(os.path.join(save_directory, "vision_encoder/config.json"), "w", encoding="utf-8") as f:
+                json.dump(vision_config, f, indent=2)
 
-        # Save text encoder weights and config
-        torch.save(self.text_encoder.state_dict(), os.path.join(save_directory, "text_encoder/pytorch_model.bin"))
-        text_config = self.text_encoder.config.to_dict() if hasattr(self.text_encoder, "config") else {}
+        # Save text encoder weights/config using HuggingFace method if available
+        if hasattr(self.text_encoder, "save_pretrained"):
+            self.text_encoder.save_pretrained(os.path.join(save_directory, "text_encoder"))
+        else:
+            torch.save(self.text_encoder.state_dict(), os.path.join(save_directory, "text_encoder/pytorch_model.bin"))
+            text_config = self.text_encoder.config.to_dict() if hasattr(self.text_encoder, "config") else {}
+            with open(os.path.join(save_directory, "text_encoder/config.json"), "w", encoding="utf-8") as f:
+                json.dump(text_config, f, indent=2)
+
         # Save text projection weights and config if present
         if hasattr(self.text_encoder, "projection"):
             torch.save(self.text_encoder.projection.state_dict(), os.path.join(save_directory, "text_encoder/text_projection.bin"))
+            text_config = self.text_encoder.config.to_dict() if hasattr(self.text_encoder, "config") else {}
             text_config["projection"] = {
                 "in_features": self.text_encoder.projection.in_features,
                 "out_features": self.text_encoder.projection.out_features,
                 "bias": self.text_encoder.projection.bias is not None
             }
-        with open(os.path.join(save_directory, "text_encoder/config.json"), "w", encoding="utf-8") as f:
-            json.dump(text_config, f, indent=2)
+            with open(os.path.join(save_directory, "text_encoder/config.json"), "w", encoding="utf-8") as f:
+                json.dump(text_config, f, indent=2)
 
         # Save tokenizer and processor if provided
         if text_tokenizer is not None:
@@ -79,8 +94,8 @@ class FinetuneCLIP(nn.Module):
 
         # Save combined config
         combined_config = {
-            "vision_encoder": vision_config,
-            "text_encoder": text_config
+            "vision_encoder": self.vision_encoder.config.to_dict() if hasattr(self.vision_encoder, "config") else {},
+            "text_encoder": self.text_encoder.config.to_dict() if hasattr(self.text_encoder, "config") else {}
         }
         with open(os.path.join(save_directory, "config.json"), "w", encoding="utf-8") as f:
             json.dump(combined_config, f, indent=2)
@@ -132,13 +147,13 @@ if __name__ == "__main__":
 
     # Load vision model submodule from CLIP
     #CLIP_model = load_clipvision_with_projection(img_model_path, img_model_config_path) #CLIPModel.from_pretrained(img_model_path)
-    CLIP_model = CLIPModel.from_pretrained(img_model_path)
+    #CLIP_model = CLIPModel.from_pretrained(img_model_path)
     # vision_model = CLIP_model.vision_model
     # Attach the visual projection layer from CLIP_model to vision_model
 
     # vision_model.visual_projection = CLIP_model.visual_projection
 
-    vision_model = CLIPVisionModel.from_pretrained("output/finetuned_clip/vision_encoder")
+    vision_model = load_pretrained_CLIP_vision(img_model_path)
     clip_preprocesor = CLIPProcessor.from_pretrained(img_model_path)
 
     # Load multilingual text model 
@@ -153,7 +168,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     
     writer = SummaryWriter("output/tensorboard_logs")
-    model.save_from_pretrained( "output/finetuned_clip", text_tokenizer=text_tokenizer, 
+    model.save_from_pretrained("output/finetuned_clip", text_tokenizer=text_tokenizer,
                                image_processor=clip_preprocesor)
     
 
@@ -214,7 +229,6 @@ if __name__ == "__main__":
 
 
     from compute_embeddings import compute_embeddings, load_embeddings
-    from german_retrieval import get_split_embeddings
     from german_retrieval import retrieve_images_by_image, retrieve_images_by_text, plot_images
     import os 
     from transformers import CLIPVisionModel, DistilBertModel
@@ -225,12 +239,16 @@ if __name__ == "__main__":
     finetuned_text_emb = r"data/embeddings/data/embeddings/finetuned_clip-ViT-B-32-multilingual-v1/finetuned_clip_text_embeddings.npy"
 
 
-    img_model = CLIPVisionModel.from_pretrained(r"output\finetuned_clip\vision_encoder")
-    text_model = DistilBertModel.from_pretrained(r"output\finetuned_clip\text_encoder")
+    # img_model = CLIPVisionModel.from_pretrained(r"output\finetuned_clip\vision_encoder")
+    # text_model = DistilBertModel.from_pretrained(r"output\finetuned_clip\text_encoder")
+
+    img_model = load_vision_with_projection(r"output/finetuned_clip/vision_encoder")
+    text_model = load_distilbert_with_projection_finetuned(r"output/finetuned_clip/text_encoder")
+
     compute_embeddings(text_model, img_model, test_df, finetuned_img_emb, finetuned_text_emb)
     image_embeddings = load_embeddings(finetuned_img_emb)
     text_embeddings = load_embeddings(finetuned_text_emb)
-    #test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
+    # # #test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
 
     query = "red dress"
     ########### Same QUery Only in the test split ###########
@@ -241,7 +259,7 @@ if __name__ == "__main__":
     print("\nImage-to-Image Retrieval Example Test:")
     example_image = results[0][0]
     print(f"Using example image: {example_image}")
-    results = retrieve_images_by_image(example_image, model.vision_encoder, image_embeddings, test_df, top_k=5)
+    results = retrieve_images_by_image(example_image,img_model, image_embeddings, test_df, top_k=5)
     plot_images(results, "Image-to-Image Retrieval (M-CLIP)", query=example_image, query_type="image")
 
 
