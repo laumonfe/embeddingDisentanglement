@@ -61,16 +61,43 @@ def compute_embeddings(text_model, image_model, df, img_emb_save_path, txt_emb_s
 
 
 if __name__ == "__main__":
+    from src.utils import load_vision_with_projection, load_distilbert_with_projection_finetuned
+    model_kind = "finetuned"  # Options: "baseline", "finetuned", "disentangled"
 
     CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
     df = pd.read_csv(CSV_PATH)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    img_model = SentenceTransformer('clip-ViT-B-32')
-    text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
+    if model_kind == "baseline":
+        print("Using baseline models...")
+        img_model = SentenceTransformer('clip-ViT-B-32')
+        text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
 
-    emb_dir = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1"
-    img_emb_path_all = os.path.join(emb_dir, "image_embeddings_clip-ViT-B-32_baseline.npy")
-    txt_emb_path_all = os.path.join(emb_dir,"text_embeddings_clip-ViT-B-32-multilingual-v1_baseline.npy")
+        emb_dir = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1"
+        img_emb_path_all = os.path.join(emb_dir, "image_embeddings_clip-ViT-B-32_baseline.npy")
+        txt_emb_path_all = os.path.join(emb_dir,"text_embeddings_clip-ViT-B-32-multilingual-v1_baseline.npy")
 
+
+    if model_kind == "finetuned":
+        print("Using finetuned models...")
+        model_directory = r"output/finetuned_baseline"
+        emb_dir = r"data\embeddings\finetuned_clip-ViT-B-32-multilingual-v1"
+        img_model = load_vision_with_projection(os.path.join(model_directory, "vision_encoder"), device)
+        text_model = load_distilbert_with_projection_finetuned(os.path.join(model_directory, "text_encoder"), device)
+        img_emb_path_all = os.path.join(emb_dir, "image_embeddings_clip-ViT-B-32_finetuned.npy")
+        txt_emb_path_all = os.path.join(emb_dir,"text_embeddings_clip-ViT-B-32-multilingual-v1_finetuned.npy")
+
+    if model_kind == "disentangled":
+        print("Using disentangled models...")
+        raise NotImplementedError("Disentangled model embedding computation not implemented yet.")
+
+
+    # img_model = SentenceTransformer('clip-ViT-B-32')
+    # text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
+
+    # emb_dir = r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1"
+    # img_emb_path_all = os.path.join(emb_dir, "image_embeddings_clip-ViT-B-32_baseline.npy")
+    # txt_emb_path_all = os.path.join(emb_dir,"text_embeddings_clip-ViT-B-32-multilingual-v1_baseline.npy")
+    image_model = img_model.to(device)
+    text_model = text_model.to(device)
     compute_embeddings(text_model, img_model, df, img_emb_path_all, txt_emb_path_all)
-

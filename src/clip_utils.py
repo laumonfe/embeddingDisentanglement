@@ -22,25 +22,46 @@ projection = nn.Linear(proj_cfg["in_features"], proj_cfg["out_features"], bias=p
 projection.load_state_dict(proj_weights)
 
 def project_DistilBert_to_CLIP(text, text_model):
+    device = next(text_model.parameters()).device
     text_tokenizer = DistilBertTokenizer.from_pretrained(text_model_path)
     tokens = text_tokenizer([text], return_tensors="pt", padding=True, truncation=True)
+    tokens = {k: v.to(device) for k, v in tokens.items()}  # Move all tensors to device
     with torch.no_grad():
         outputs = text_model(**tokens)
         pooled = outputs.last_hidden_state.mean(dim=1)
-        emb = projection(pooled)
+        emb = projection.to(device)(pooled)
     return emb.cpu().numpy()[0]  # Shape: (512,)
 
 
 
-def clip_encode(model,  inputs,  modality="text"):
+# def clip_encode(model,  inputs,  modality="text"):
+#     device = next(model.parameters()).device
+#     if modality == "text":
+#         return project_DistilBert_to_CLIP(inputs, model)
+#     elif modality == "image":
+#         processor = CLIPProcessor.from_pretrained(model.name_or_path)
+#         processed = processor(images=inputs, return_tensors="pt")
+#         with torch.no_grad():
+#             vision_outputs = model.vision_model(processed["pixel_values"].to(device))
+#             pooled = vision_outputs.pooler_output.to(device)
+#             emb = model.visual_projection(pooled)
+#         return emb.cpu().numpy()[0]
+#     else:
+#         raise ValueError("modality must be 'text' or 'image'")
+def clip_encode(model, inputs, modality="text"):
+    device = next(model.parameters()).device
     if modality == "text":
+        # Add debug print for text input
         return project_DistilBert_to_CLIP(inputs, model)
     elif modality == "image":
         processor = CLIPProcessor.from_pretrained(model.name_or_path)
         processed = processor(images=inputs, return_tensors="pt")
+        pixel_values = processed["pixel_values"]
+        pixel_values = pixel_values.to(device)
         with torch.no_grad():
-            vision_outputs = model.vision_model(processed["pixel_values"])
+            vision_outputs = model.vision_model(pixel_values)
             pooled = vision_outputs.pooler_output
+            pooled = pooled.to(device)
             emb = model.visual_projection(pooled)
         return emb.cpu().numpy()[0]
     else:

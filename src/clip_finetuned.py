@@ -219,7 +219,7 @@ if __name__ == "__main__":
             progress_bar.set_postfix({"batch_loss": loss.item()})
 
         # Save model at each epoch
-        step_save_dir = os.path.join(output_directory, f"step_{global_step}")
+        step_save_dir = os.path.join(output_directory, f"epoch_{epoch}")
         model.save_from_pretrained(step_save_dir, text_tokenizer=text_tokenizer, image_processor=clip_preprocesor)
 
         # Save best model so far
