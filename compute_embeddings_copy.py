@@ -4,23 +4,18 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 import torch
+from src.models import PretrainedCLIPVision, PretrainedDistilBert, ProjectedCLIPVision, ProjectedDistilBert
 
-def load_model(model_kind, model_type, model_directory, device):
-    if model_kind == "baseline":
-        from sentence_transformers import SentenceTransformer
-        if model_type == "image":
-            return SentenceTransformer('clip-ViT-B-32')
-        else:
-            return SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1')
-    elif model_kind == "finetuned":
-        if model_type == "image":
-            from src.utils import load_vision_with_projection
-            return load_vision_with_projection(os.path.join(model_directory, "vision_encoder"), device)
-        else:
-            from src.utils import load_distilbert_with_projection_finetuned
-            return load_distilbert_with_projection_finetuned(os.path.join(model_directory, "text_encoder"), device)
+
+def load_embeddings(emb_save_path):
+    if os.path.exists(emb_save_path):
+        print(f"Loading embeddings from {emb_save_path}")
+        embeddings = np.load(emb_save_path, allow_pickle=True)
+        print("Contains:", len(embeddings) , "embeddings.")
+        return embeddings
     else:
-        raise NotImplementedError(f"{model_kind} model loading not implemented.")
+        print(f"Embeddings file {emb_save_path} not found.")
+        return None
 
 def compute_embeddings(image_encoder, text_encoder, df, img_emb_save_path, txt_emb_save_path):
     img_embeddings, text_embeddings = [], []
@@ -48,18 +43,30 @@ def compute_embeddings(image_encoder, text_encoder, df, img_emb_save_path, txt_e
     print(f"Saved embeddings to {img_emb_save_path} and {txt_emb_save_path}")
 
 if __name__ == "__main__":
-    model_kind = "finetuned"  # Options: "baseline", "finetuned", "disentangled"
+    
+    model_kind = "finetuned"  # "pretrained" or "finetuned"
+    emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
+    
     CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
     df = pd.read_csv(CSV_PATH)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_directory = r"output/finetuned_baseline" if model_kind == "finetuned" else None
-    emb_dir = {
-        "baseline": r"data\embeddings\baseline_clip-ViT-B-32-multilingual-v1",
-        "finetuned": r"data\embeddings\finetuned_clip-ViT-B-32-multilingual-v1"
-    }[model_kind]
+
     img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
     txt_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
 
-    image_encoder = load_model(model_kind, "image", model_directory, device)
-    text_encoder = load_model(model_kind, "text", model_directory, device)
+    if model_kind == "pretrained":
+        # Paths to pretrained models
+        pretrained_img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
+        pretrained_text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
+        image_encoder = PretrainedCLIPVision(pretrained_img_model_path, device)
+        text_encoder = PretrainedDistilBert(pretrained_text_model_path, device)
+
+    if model_kind == "finetuned":
+        # Paths to finetuned models
+        finetuned_text_model_path = r"output/finetuned_baseline/best_model/text_encoder"
+        finetuned_img_model_path = r"output/finetuned_baseline/best_model/vision_encoder"
+        image_encoder = ProjectedCLIPVision(finetuned_img_model_path, device)
+        text_encoder = ProjectedDistilBert(finetuned_text_model_path, device)
+
     compute_embeddings(image_encoder, text_encoder, df, img_emb_path_all, txt_emb_path_all)
