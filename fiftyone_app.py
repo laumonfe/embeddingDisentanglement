@@ -2,42 +2,52 @@ import csv
 import fiftyone as fo
 import fiftyone.brain as fob
 import pandas as pd
+from tqdm import tqdm
 import numpy as np
+import os 
+from compute_embeddings import load_embeddings
+from german_retrieval import get_split_embeddings
 
-# Load your CSV and embeddings
-#csv_path = "visualization_explorer/feidegger_visualization_data_valid.csv"
-# text_embeddings_path = "data/feidegger_clip-ViT-B-32-multilingual-v1_text_embeddings_baseline.npy"
-# image_embeddings_path = "data/feidegger_clip-ViT-B-32_image_embeddings_baseline.npy"
-csv_path = "visualization_explorer/feidegger_visualization_data_valid_test.csv"
-text_embeddings_path = "data/feidegger_clip-ViT-B-32-multilingual-v1_text_embeddings_baseline_test.npy"
-image_embeddings_path = "data/feidegger_clip-ViT-B-32-multilingual-v1_image_embeddings_baseline_test.npy"
+model_kind = "finetuned"  # "pretrained" or "finetuned"
+emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
 
-df = pd.read_csv(csv_path)
-text_embeddings = np.load(text_embeddings_path)
-image_embeddings = np.load(image_embeddings_path)
-num_samples = min(len(df), len(text_embeddings), len(image_embeddings))
+CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
+df = pd.read_csv(CSV_PATH)
+
+
+img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
+text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
+
+image_embeddings = load_embeddings(img_emb_path_all)
+text_embeddings = load_embeddings(text_emb_path_all)
+# alternatevly, get a subset of a specific split
+test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
+
+
+num_samples = min(len(test_df), len(test_txt_emb), len(test_img_emb))
 print(f"Using {num_samples} samples.")
 print(f"DataFrame length: {len(df)}"
-      f", Text Embeddings length: {len(text_embeddings)}"
-      f", Image Embeddings length: {len(image_embeddings)}")
+      f", Text Embeddings length: {len(test_txt_emb)}"
+      f", Image Embeddings length: {len(test_img_emb)}")
 # Create FiftyOne samples
 samples = []
-for idx, row in df.iterrows():
+for idx, row in tqdm(test_df.iterrows(), total=len(test_df), desc="Loading embeddings into FiftyOne samples"):
     img_path = row["image_path"]
     text = row["text"]
     sample = fo.Sample(
         filepath=img_path,
         text=text,
-        text_embedding=text_embeddings[idx].tolist(),
-        image_embedding=image_embeddings[idx].tolist()
+        text_embedding=test_txt_emb[idx]['embedding'].tolist(),
+        image_embedding=test_img_emb[idx]['embedding'].tolist()
     )
-    samples.append(sample)
+    samples.append(sample) 
 
 # Delete existing dataset if it exists
-if "feidegger_text_embeddings" in fo.list_datasets():
-    fo.delete_dataset("feidegger_text_embeddings")
+dataser_name = "feidegger_text_embeddings_finetuned"
+if dataser_name in fo.list_datasets():
+    fo.delete_dataset(dataser_name)
 
-dataset = fo.Dataset("feidegger_text_embeddings")
+dataset = fo.Dataset(dataser_name)
 dataset.add_samples(samples)
 
 # Compute similarity view 
