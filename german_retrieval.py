@@ -101,7 +101,7 @@ if __name__ == "__main__":
     #query = "ein wunderschönes und sehr festliches langes Kleid" # "a beautiful and very festive long dress"
     #query = "ein kurzes schwarzes Kleid"  # a short black dress
     #query = "ein glitzerndes und schickes Kleid"  # a glitter and fancy dress
-    query = "ein grünes Samtkleid mit V-Ausschnitt und langen Ärmeln" #"a velvet green dress with a V-neck and long sleeves" 
+    #query = "ein grünes Samtkleid mit V-Ausschnitt und langen Ärmeln" #"a velvet green dress with a V-neck and long sleeves" 
     #"spring dress perfect for a picnic date"  
     # #"a red dress with floral pattern"
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
     text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
 
-    if model_kind == "pretrained":
+    if model_kind == "baseline":
         # Paths to pretrained models
         pretrained_img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
         pretrained_text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
@@ -141,6 +141,10 @@ if __name__ == "__main__":
     test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
 
     #query = "red dress"
+    id = 42
+    query = test_df.iloc[id]['text']
+    gt_img = test_df.iloc[id]['image_path']
+    plt.imshow(Image.open(gt_img))
 
     ########### Same Query Only in the test split ###########
     print("Text-to-Image Retrieval Example Test:")

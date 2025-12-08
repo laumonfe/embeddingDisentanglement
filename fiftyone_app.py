@@ -8,7 +8,7 @@ import os
 from compute_embeddings import load_embeddings
 from german_retrieval import get_split_embeddings
 
-model_kind = "finetuned"  # "pretrained" or "finetuned"
+model_kind = "disentangled"  # "pretrained" or "finetuned", "disentangled"
 emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
 
 CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
@@ -43,7 +43,7 @@ for idx, row in tqdm(test_df.iterrows(), total=len(test_df), desc="Loading embed
     samples.append(sample) 
 
 # Delete existing dataset if it exists
-dataser_name = "feidegger_text_embeddings_finetuned"
+dataser_name = "feidegger_text_embeddings_disentangled"
 if dataser_name in fo.list_datasets():
     fo.delete_dataset(dataser_name)
 

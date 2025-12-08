@@ -101,33 +101,23 @@ class FinetuneCLIP(nn.Module):
             json.dump(combined_config, f, indent=2)
 
 def disentangled_clip_loss(image_embeds, text_embeds, temperature=0.07, alpha=1.0, beta=1.0, gamma=0.1):
-    """
-    image_embeds: (batch, D)
-    text_embeds: (batch, D)
-    alpha: weight for content-image alignment
-    beta: weight for subjective-image orthogonality
-    gamma: weight for subjective-content orthogonality
-    """
     D = text_embeds.shape[1]
     D_c = D // 2  # first half: content, second half: subjective
     text_content = text_embeds[:, :D_c]
     text_subjective = text_embeds[:, D_c:]
 
-    # 1. Content-Image alignment (contrastive loss)
     image_embeds_norm = nn.functional.normalize(image_embeds, dim=-1)
     text_content_norm = nn.functional.normalize(text_content, dim=-1)
-    logits = image_embeds_norm @ text_content_norm.t() / temperature
+    image_content = image_embeds_norm[:, :D_c]
+    logits = image_content @ text_content_norm.t() / temperature
     labels = torch.arange(logits.size(0)).to(logits.device)
     loss_content_img = (nn.CrossEntropyLoss()(logits, labels) + nn.CrossEntropyLoss()(logits.t(), labels)) / 2
 
-    # 2. Subjective-Image orthogonality (minimize cosine similarity)
     text_subjective_norm = nn.functional.normalize(text_subjective, dim=-1)
-    loss_subjective_img = (image_embeds_norm * text_subjective_norm).sum(dim=1).abs().mean()
-
-    # 3. Subjective-Content orthogonality (optional)
+    image_subjective = image_embeds_norm[:, D_c:]
+    loss_subjective_img = (image_subjective * text_subjective_norm).sum(dim=1).abs().mean()
     loss_subjective_content = (text_content_norm * text_subjective_norm).sum(dim=1).abs().mean()
 
-    # Total loss
     loss = alpha * loss_content_img + beta * loss_subjective_img + gamma * loss_subjective_content
     return loss
 
@@ -193,7 +183,7 @@ if __name__ == "__main__":
     text_model_config_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1/2_Dense/config.json"
     text_model_projection_weights_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1/2_Dense/pytorch_model.bin"
 
-    output_directory = r"output/finetuned_baseline"
+    output_directory = r"output/disentangled_clip_loss2"
 
     learning_rate = 1e-4
     batch_size = 16
@@ -215,7 +205,7 @@ if __name__ == "__main__":
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     
-    writer = SummaryWriter(os.path.join(output_directory,"tensorboard_logs"), comment= "Finetune_CLIP")
+    writer = SummaryWriter(os.path.join(output_directory,"tensorboard_logs"), comment= "Disentangled_CLIP_loss2")
 
     num_epochs = 100
     model.train()
@@ -247,9 +237,9 @@ if __name__ == "__main__":
 
             progress_bar.set_postfix({"batch_loss": loss.item()})
 
-        # Save model at each epoch
-        step_save_dir = os.path.join(output_directory, f"epoch_{epoch}")
-        model.save_from_pretrained(step_save_dir, text_tokenizer=text_tokenizer, image_processor=clip_preprocesor)
+        if (epoch + 1) % 10 == 0:
+            step_save_dir = os.path.join(output_directory, f"epoch_{epoch+1}")
+            model.save_from_pretrained(step_save_dir, text_tokenizer=text_tokenizer, image_processor=clip_preprocesor)
 
         # Save best model so far
         if loss.item() < best_loss:
@@ -278,27 +268,27 @@ if __name__ == "__main__":
     )
 
 
-    test_df = df[df["split"] == "test"]
+    # test_df = df[df["split"] == "test"]
 
-    finetuned_img_emb = r"data/embeddings/data/embeddings/finetuned_clip-ViT-B-32-multilingual-v1/finetuned_clip_image_embeddings.npy"
-    finetuned_text_emb = r"data/embeddings/data/embeddings/finetuned_clip-ViT-B-32-multilingual-v1/finetuned_clip_text_embeddings.npy"
+    # finetuned_img_emb = r"data/embeddings/data/embeddings/finetuned_clip-ViT-B-32-multilingual-v1/finetuned_clip_image_embeddings.npy"
+    # finetuned_text_emb = r"data/embeddings/data/embeddings/finetuned_clip-ViT-B-32-multilingual-v1/finetuned_clip_text_embeddings.npy"
 
-    img_model = load_vision_with_projection(os.path.join(output_directory, "vision_encoder"))
-    text_model = load_distilbert_with_projection_finetuned(os.path.join(output_directory, "text_encoder"))
+    # img_model = load_vision_with_projection(os.path.join(output_directory, "vision_encoder"))
+    # text_model = load_distilbert_with_projection_finetuned(os.path.join(output_directory, "text_encoder"))
 
-    compute_embeddings(text_model, img_model, test_df, finetuned_img_emb, finetuned_text_emb)
-    image_embeddings = load_embeddings(finetuned_img_emb)
-    text_embeddings = load_embeddings(finetuned_text_emb)
-    # # #test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
+    # compute_embeddings(text_model, img_model, test_df, finetuned_img_emb, finetuned_text_emb)
+    # image_embeddings = load_embeddings(finetuned_img_emb)
+    # text_embeddings = load_embeddings(finetuned_text_emb)
+    # # # #test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
 
-    query = "red dress"
-    ########### Same QUery Only in the test split ###########
-    print("Text-to-Image Retrieval Example Test:")
-    results = retrieve_images_by_text(query, text_model, image_embeddings, test_df,  top_k=5)
-    plot_images(results, "Text-to-Image Retrieval (M-CLIP)", query=query, query_type="text")
+    # query = "red dress"
+    # ########### Same QUery Only in the test split ###########
+    # print("Text-to-Image Retrieval Example Test:")
+    # results = retrieve_images_by_text(query, text_model, image_embeddings, test_df,  top_k=5)
+    # plot_images(results, "Text-to-Image Retrieval (M-CLIP)", query=query, query_type="text")
 
-    print("\nImage-to-Image Retrieval Example Test:")
-    example_image = results[0][0]
-    print(f"Using example image: {example_image}")
-    results = retrieve_images_by_image(example_image,img_model, image_embeddings, test_df, top_k=5)
-    plot_images(results, "Image-to-Image Retrieval (M-CLIP)", query=example_image, query_type="image")
+    # print("\nImage-to-Image Retrieval Example Test:")
+    # example_image = results[0][0]
+    # print(f"Using example image: {example_image}")
+    # results = retrieve_images_by_image(example_image,img_model, image_embeddings, test_df, top_k=5)
+    # plot_images(results, "Image-to-Image Retrieval (M-CLIP)", query=example_image, query_type="image")

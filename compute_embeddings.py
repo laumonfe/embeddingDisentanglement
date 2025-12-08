@@ -44,7 +44,7 @@ def compute_embeddings(image_encoder, text_encoder, df, img_emb_save_path, txt_e
 
 if __name__ == "__main__":
     
-    model_kind = "finetuned"  # "pretrained" or "finetuned"
+    model_kind = "disentangled"  # "pretrained" or "finetuned"
     emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
     
     CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
@@ -68,5 +68,12 @@ if __name__ == "__main__":
         finetuned_img_model_path = r"output/finetuned_baseline/best_model/vision_encoder"
         image_encoder = ProjectedCLIPVision(finetuned_img_model_path, device)
         text_encoder = ProjectedDistilBert(finetuned_text_model_path, device)
+
+    if model_kind == "disentangled":
+        # Paths to disentangled finetuned models
+        disentangled_text_model_path = r"output/disentangled_clip_loss2/best_model_x/text_encoder"
+        disentangled_img_model_path = r"output/disentangled_clip_loss2/best_model_x/vision_encoder"
+        image_encoder = ProjectedCLIPVision(disentangled_img_model_path, device)
+        text_encoder = ProjectedDistilBert(disentangled_text_model_path, device)
 
     compute_embeddings(image_encoder, text_encoder, df, img_emb_path_all, txt_emb_path_all)
