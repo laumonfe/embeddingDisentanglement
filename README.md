@@ -1,10 +1,8 @@
-# State Space model for multimodal learning using Feidegger
+# Embedding Disentamglement for Multimodal Learning
 
 ## What is it? 
 
-
-
-
+This repository explores embedding disentanglement for multimodal learning in the fashion domain. We use CLIP (Contrastive Language-Image Pretraining) models to perform fashion retrieval, matching images of dresses with their textual descriptions. The project includes methods for finetuning CLIP, enforcing disentanglement between content and subjective information in embeddings, and evaluating retrieval performance on the FEIDEGGER dataset.
 
 
 ## The Dataset
@@ -46,19 +44,7 @@ You can finetune CLIP as is, or you can Finetune it to enforce disentanglement
 2. fiftyone 
 3. clustering 
 
-## metric calculation 
+## Metric calculation 
 Evaluation using the retrieval 
 
 
-## Citing FEIDEGGER
-
-Please cite the following paper when using FEIDEGGER: 
-
-```
-@inproceedings{lefakis2018feidegger,
-  title={FEIDEGGER: A Multi-modal Corpus of Fashion Images and Descriptions in German},
-  author={Lefakis, Leonidas and Akbik, Alan and Vollgraf, Roland},
-  booktitle = {{LREC} 2018, 11th Language Resources and Evaluation Conference},
-  year      = {2018}
-}
-```
