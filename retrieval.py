@@ -45,7 +45,7 @@ def compute_recall_precision_table(text_embeddings, image_embeddings, k_list=[1,
 if __name__ == "__main__":
     import os
     from compute_embeddings import load_embeddings
-    from german_retrieval import get_split_embeddings
+    from visualizations.german_retrieval import get_split_embeddings
 
     model_kind = "disentangled"  # or "pretrained", disentangled , baseline 
     emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"

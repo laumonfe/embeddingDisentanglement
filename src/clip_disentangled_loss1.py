@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     import os 
     from compute_embeddings import compute_embeddings, load_embeddings
-    from german_retrieval import retrieve_images_by_image, retrieve_images_by_text, plot_images
+    from visualizations.german_retrieval import retrieve_images_by_image, retrieve_images_by_text, plot_images
     
     # Load CSV
     csv_path = r"data/embeddings/feidegger_visualization_data.csv"

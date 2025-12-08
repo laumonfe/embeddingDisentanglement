@@ -6,7 +6,7 @@ from tqdm import tqdm
 import numpy as np
 import os 
 from compute_embeddings import load_embeddings
-from german_retrieval import get_split_embeddings
+from visualizations.german_retrieval import get_split_embeddings
 
 model_kind = "disentangled"  # "pretrained" or "finetuned", "disentangled"
 emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
