@@ -29,6 +29,27 @@ python install_dependencies.py --conda --env-name feidegger-mamba
 python feidegger_mamba_prep.py --data_path data/FEIDEGGER_release_1.2.json --output_dir mamba_dataset
 ```
 
+
+
+## Create the embeddings 
+You can either use the precomputed embeddings, or you can compute them yourself using... 
+
+## Finetuning the models
+
+You can finetune CLIP as is, or you can Finetune it to enforce disentanglement 
+
+
+## Visualizing the outputs
+
+
+1. retrival visualization 
+2. fiftyone 
+3. clustering 
+
+## metric calculation 
+Evaluation using the retrieval 
+
+
 ## Citing FEIDEGGER
 
 Please cite the following paper when using FEIDEGGER: 
