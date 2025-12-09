@@ -13,10 +13,7 @@ This folder contains scripts and tools for visualizing multimodal embeddings and
   - Computes UMAP projections for both text and image embeddings, enabling visual inspection of clustering and structure.
   - Launches the FiftyOne web app for interactive browsing, filtering, and similarity search.
 
-<video width="100%" controls>
-  <source src="../assets/fiftyOne.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+![FiftyOne Demo](../assets/fiftyOne.gif)
 
 ### 2. **Retrieval Visualization (`retrieval_visualization.py`)**
 - **Purpose:**  
@@ -36,12 +33,8 @@ This folder contains scripts and tools for visualizing multimodal embeddings and
   - Uses dimensionality reduction techniques (UMAP, t-SNE) to project high-dimensional embeddings.
   - Shows how images or texts group together, revealing semantic or stylistic patterns.
 
-<video width="100%" controls>
-  <source src="https://github.com/laumonfe/embeddingDisentanglement/blob/0b45dbd4aa6c5633b420ada0cc51bf27560bca44/assets/umap_visualization.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
 
-assets/umap_visualization.mp4
+![UMAP Visualization](../assets/umap_visualization.gif)
 
 **Note:**  
 Make sure you have installed all dependencies listed in `requirements.txt` before running visualization scripts.
