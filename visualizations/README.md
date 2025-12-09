@@ -37,7 +37,7 @@ This folder contains scripts and tools for visualizing multimodal embeddings and
   - Shows how images or texts group together, revealing semantic or stylistic patterns.
 
 <video width="100%" controls>
-  <source src="../assets/umap_visualization.mp4" type="video/mp4">
+  <source src="https://github.com/laumonfe/embeddingDisentanglement/blob/0b45dbd4aa6c5633b420ada0cc51bf27560bca44/assets/umap_visualization.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
