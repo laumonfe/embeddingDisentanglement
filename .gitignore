@@ -3,7 +3,7 @@
 output/
 evaluation/
 pretrained_models/*
-!pretrained_models/pretrained.md
+!pretrained_models/README.md
 !pretrained_models/setup_pretrained_models.py
 # Exclude the mamba_dataset folder and all its contents
 mamba_dataset/
