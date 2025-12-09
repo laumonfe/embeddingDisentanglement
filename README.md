@@ -35,14 +35,14 @@ You can finetune CLIP as is, or you can Finetune it to enforce disentanglement
 You can either use the precomputed embeddings, or you can compute them yourself using ´compute_embeddings.py´
 
 
-### What does it do?
+**What does it do?**
 
 - Loads a CSV file containing image paths and text descriptions.
 - Loads the specified model (pretrained, finetuned, or disentangled).
 - Computes embeddings for each image and text pair.
 - Saves the embeddings as `.npy` files for downstream tasks (retrieval, visualization, etc.).
 
-### Usage
+**Usage**
 
 Run from the command line:
 
@@ -57,7 +57,7 @@ python compute_embeddings.py --model_kind [pretrained|finetuned|disentangled] --
 - `--pretrained_dir`: (Optional) Path to the directory containing your pretrained or finetuned models.
 - `--csv_path`: Path to the CSV file containing image paths and text descriptions.
 
-### Output
+**Output**
 
 - Image embeddings:  
   `data/embeddings/[model_kind]_clip-ViT-B-32-multilingual-v1/image_embeddings_clip-ViT-B-32_[model_kind].npy`
@@ -75,14 +75,14 @@ For a quantitative evaluation of the models, youi can run the ´retrieval_evalua
 
 This script evaluates retrieval performance for the FEIDEGGER dataset using pre-computed image and text embeddings.
 
-### What does it do?
+**What does it do?**
 
 - Loads image and text embeddings for a specified model (pretrained, finetuned, or disentangled).
 - Loads metadata from a CSV file.
 - Computes retrieval metrics: Recall@K, Precision@K, and mean ground truth rank for text-to-image retrieval.
 - Saves per-query results (including recall, precision, and rank) to a CSV file.
 
-### Usage
+**Usage**
 
 Run from the command line:
 
@@ -99,7 +99,7 @@ python retrieval.py --model_kind [pretrained|finetuned|disentangled] --csv_path 
 python retrieval.py --model_kind finetuned --csv_path data/embeddings/feidegger_visualization_data.csv
 ```
 
-### Output
+**Output**
 
 - Prints mean Recall@K, Precision@K, and mean ground truth rank for each K.
 - Saves a CSV file with per-query results:
