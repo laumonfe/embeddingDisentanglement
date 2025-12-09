@@ -44,10 +44,34 @@ def compute_embeddings(image_encoder, text_encoder, df, img_emb_save_path, txt_e
 
 if __name__ == "__main__":
     
-    model_kind = "disentangled"  # "pretrained" or "finetuned"
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Compute embeddings for FEIDEGGER dataset.")
+    parser.add_argument(
+        "--model_kind",
+        choices=["pretrained", "finetuned", "disentangled"],
+        default="disentangled",
+        help="Which model to use: pretrained (baseline), finetuned (on FEIDEGGER), or disentangled (on FEIDEGGER)."
+    )
+    parser.add_argument(
+        "--pretrained_dir",
+        type=str,
+        default=None,
+        help="Directory containing pretrained CLIP and DistilBERT models."
+    )
+    parser.add_argument(
+        "--csv_path",
+        type=str,
+        default="data/embeddings/feidegger_visualization_data.csv",
+        help="Path to the CSV file containing image paths and text descriptions."
+    )
+    args = parser.parse_args()
+    model_kind = args.model_kind
+    pretrained_dir = args.pretrained_dir
+
     emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
     
-    CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
+    CSV_PATH = args.csv_path
     df = pd.read_csv(CSV_PATH)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,22 +81,34 @@ if __name__ == "__main__":
 
     if model_kind == "pretrained":
         # Paths to pretrained models
-        pretrained_img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
-        pretrained_text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
+        if pretrained_dir is not None:
+            pretrained_img_model_path = os.path.join(pretrained_dir, "sentence-transformers--clip-ViT-B-32")
+            pretrained_text_model_path = os.path.join(pretrained_dir, "sentence-transformers--clip-ViT-B-32-multilingual-v1")
+        else:
+            pretrained_img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
+            pretrained_text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
         image_encoder = PretrainedCLIPVision(pretrained_img_model_path, device)
         text_encoder = PretrainedDistilBert(pretrained_text_model_path, device)
 
     if model_kind == "finetuned":
         # Paths to finetuned models
-        finetuned_text_model_path = r"output/finetuned_baseline/best_model/text_encoder"
-        finetuned_img_model_path = r"output/finetuned_baseline/best_model/vision_encoder"
+        if pretrained_dir is not None:
+            finetuned_text_model_path = os.path.join(pretrained_dir, "finetuned_baseline", "best_model", "text_encoder")
+            finetuned_img_model_path = os.path.join(pretrained_dir, "finetuned_baseline", "best_model", "vision_encoder")
+        else:
+            finetuned_text_model_path = r"output/finetuned_baseline/best_model/text_encoder"
+            finetuned_img_model_path = r"output/finetuned_baseline/best_model/vision_encoder"
         image_encoder = ProjectedCLIPVision(finetuned_img_model_path, device)
         text_encoder = ProjectedDistilBert(finetuned_text_model_path, device)
 
     if model_kind == "disentangled":
         # Paths to disentangled finetuned models
-        disentangled_text_model_path = r"output/disentangled_clip_loss2/best_model_x/text_encoder"
-        disentangled_img_model_path = r"output/disentangled_clip_loss2/best_model_x/vision_encoder"
+        if pretrained_dir is not None:
+            disentangled_text_model_path = os.path.join(pretrained_dir, "disentangled_clip_loss2", "best_model_x", "text_encoder")
+            disentangled_img_model_path = os.path.join(pretrained_dir, "disentangled_clip_loss2", "best_model_x", "vision_encoder")
+        else: 
+            disentangled_text_model_path = r"output/disentangled_clip_loss2/best_model_x/text_encoder"
+            disentangled_img_model_path = r"output/disentangled_clip_loss2/best_model_x/vision_encoder"
         image_encoder = ProjectedCLIPVision(disentangled_img_model_path, device)
         text_encoder = ProjectedDistilBert(disentangled_text_model_path, device)
 

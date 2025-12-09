@@ -44,12 +44,29 @@ def compute_recall_precision_table(text_embeddings, image_embeddings, k_list=[1,
 
 if __name__ == "__main__":
     import os
+    import argparse
     from compute_embeddings import load_embeddings
     from visualizations.german_retrieval import get_split_embeddings
 
-    model_kind = "disentangled"  # or "pretrained", disentangled , baseline 
+    parser = argparse.ArgumentParser(description="Compute embeddings for FEIDEGGER dataset.")
+    parser.add_argument(
+        "--model_kind",
+        choices=["pretrained", "finetuned", "disentangled"],
+        default="disentangled",
+        help="Which model to use: pretrained (baseline), finetuned (on FEIDEGGER), or disentangled (on FEIDEGGER)."
+    )
+    parser.add_argument(
+        "--csv_path",
+        type=str,
+        default="data/embeddings/feidegger_visualization_data.csv",
+        help="Path to the CSV file containing image paths and text descriptions."
+    )
+
+    args = parser.parse_args()
+    model_kind = args.model_kind
+    CSV_PATH = args.csv_path
+
     emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
-    CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
     df = pd.read_csv(CSV_PATH)
 
     img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
