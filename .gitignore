@@ -5,9 +5,7 @@ evaluation/
 pretrained_models/*
 !pretrained_models/README.md
 !pretrained_models/setup_pretrained_models.py
-# Exclude the mamba_dataset folder and all its contents
-mamba_dataset/
-mamba_output/
+
 checkpoints/
 data/
 
@@ -45,19 +43,8 @@ Thumbs.db
 # Downloaded images folder
 images/
 
-# HDF5 files (typically large)
-*.h5
-
 # Logs
 *.log
 
 # Temporary files
 *.tmp
-
-# Exported CSV files
-feidegger_dataset.csv
-split7_sample.csv
-
-# Generated plots
-split_distribution.png
-word_frequencies.png

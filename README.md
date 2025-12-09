@@ -19,14 +19,26 @@ pip install -r requirements.txt
 ```
 
 ## :arrow_down: Download the dataset 
-You can download the FEIDEGGER dataset using: 
+You can download the FEIDEGGER dataset using, by default it will download the dataset and the csv with the metadata in /data, for more details read the readme inside dataset/: 
 ```
-python dataset/feidegger_crawler.py --data_path dataset/FEIDEGGER_release_1.2.json --output_dir [path/to/dataset]
+python dataset/feidegger_crawler.py 
 ```
 
 ## :rocket: Finetuning the models
 
-You can finetune CLIP as is, or you can finetune it to enforce disentanglement 
+You can finetune CLIP as is, or you can finetune it to enforce disentanglement. For further details read the readme inside src/. 
+
+To finetune CLIP as is: 
+
+```
+python -m src.clip_finetuned
+```
+
+To finetune CLIP with disentanglement: 
+
+```
+python -m src.clip_disentangled_loss2
+```
 
 ## :gear: Create the embeddings 
 You can either use the precomputed embeddings, or you can compute them yourself using ´compute_embeddings.py´
