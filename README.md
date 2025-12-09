@@ -12,24 +12,21 @@ The FEIDEGGER dataset consists of 8732 high-resolution images of dresses, each w
 
 ## :package: Requirements
 
-Install dependencies:
-```
-python install_dependencies.py
-```
-Or with a Conda environment:
+Install dependencies in your environment:
 
 ```
-python install_dependencies.py --conda --env-name feidegger-mamba
+pip install -r requirements.txt
 ```
 
 ## :arrow_down: Download the dataset 
+You can download the FEIDEGGER dataset using: 
 ```
-python feidegger_mamba_prep.py --data_path data/FEIDEGGER_release_1.2.json --output_dir mamba_dataset
+python dataset/feidegger_crawler.py --data_path dataset/FEIDEGGER_release_1.2.json --output_dir [path/to/dataset]
 ```
 
 ## :rocket: Finetuning the models
 
-You can finetune CLIP as is, or you can Finetune it to enforce disentanglement 
+You can finetune CLIP as is, or you can finetune it to enforce disentanglement 
 
 ## :gear: Create the embeddings 
 You can either use the precomputed embeddings, or you can compute them yourself using ´compute_embeddings.py´
