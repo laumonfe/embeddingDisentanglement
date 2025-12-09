@@ -41,7 +41,7 @@ This folder contains scripts and tools for visualizing multimodal embeddings and
   Your browser does not support the video tag.
 </video>
 
-
+(https://raw.githubusercontent.com/laumonfe/embeddingDisentanglement/main/assets/umap_visualization.mp4)
 
 **Note:**  
 Make sure you have installed all dependencies listed in `requirements.txt` before running visualization scripts.
