@@ -161,13 +161,9 @@ def save_training_config(save_directory, num_epochs, optimizer, batch_size, lear
 
 
 if __name__ == "__main__":
-
-    import os 
-    from compute_embeddings import compute_embeddings, load_embeddings
-    from visualizations.german_retrieval import retrieve_images_by_image, retrieve_images_by_text, plot_images
     
     # Load CSV
-    csv_path = r"data/embeddings/feidegger_visualization_data.csv"
+    csv_path = r"dataset/feidegger_visualization_data.csv"
     df = pd.read_csv(csv_path)
 
     # Filter train split
