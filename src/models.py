@@ -164,7 +164,6 @@ class FinetuneCLIP(nn.Module):
 
         # Save text encoder weights/config using HuggingFace method if available
         if hasattr(self.text_encoder.model, "save_pretrained"):
-            print( "Saving text encoder using HuggingFace method...")
             self.text_encoder.model.save_pretrained(os.path.join(save_directory, "text_encoder"))
 
 

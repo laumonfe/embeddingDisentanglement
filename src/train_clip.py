@@ -16,12 +16,15 @@ from src.losses import disentangled_clip_loss, contrastive_loss
 from src.models import PretrainedCLIPVision, PretrainedDistilBert, FinetuneCLIP
 
 
-def train(model,train_loader,optimizer,writer,output_directory,num_epochs,
-    device,loss_fn,save_every=10,):
+def train(model, train_loader, optimizer, writer, output_directory, num_epochs,
+    device, loss_fn, save_every=10, patience=3):
     
     best_loss = float("inf")
     best_model_dir = None
     global_step = 0
+    best_val_loss = float("inf")
+    epochs_no_improve = 0
+    stopped_epoch = num_epochs
 
     model.train()
     for epoch in range(num_epochs):
@@ -48,17 +51,46 @@ def train(model,train_loader,optimizer,writer,output_directory,num_epochs,
             step_save_dir = os.path.join(output_directory, f"epoch_{epoch+1}")
             model.save_from_pretrained(step_save_dir)
 
-        if loss.item() < best_loss:
-            best_loss = loss.item()
+        avg_epoch_loss = epoch_loss / len(train_loader)
+        avg_val_loss = validate(model, val_loader, device, loss_fn)
+
+        print(f"Epoch {epoch+1} finished. Train loss: {avg_epoch_loss:.4f} | Val loss: {avg_val_loss:.4f}")
+        writer.add_scalar("Loss/val", avg_val_loss, epoch)
+
+        # Early stopping logic
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            epochs_no_improve = 0
             best_model_dir = os.path.join(output_directory, "best_model")
             model.save_from_pretrained(best_model_dir)
+        else:
+            epochs_no_improve += 1
+            if epochs_no_improve >= patience:
+                stopped_epoch = epoch + 1
+                print(f"Early stopping triggered after {stopped_epoch} epochs. Best model saved at {best_model_dir} with val loss {best_val_loss:.4f}")
+                writer.close()
+                return stopped_epoch
 
-        avg_epoch_loss = epoch_loss / len(train_loader)
-        print(f"Epoch {epoch+1} finished. Average loss: {avg_epoch_loss:.4f}")
-
-    print(f"Best model saved at {best_model_dir} with loss {best_loss:.4f}")
+    print(f"Best model saved at {best_model_dir} with val loss {best_val_loss:.4f}")
     writer.close()
+    return stopped_epoch
 
+def validate(model, val_loader, device, loss_fn):
+    model.eval()
+    val_loss = 0.0
+    with torch.no_grad():
+        for batch in val_loader:
+            batch = {k: v.to(device) for k, v in batch.items()}
+            outputs = model(
+                pixel_values=batch["pixel_values"],
+                input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"]
+            )
+            loss = loss_fn(outputs["vision_embeds"], outputs["text_embeds"])
+            val_loss += loss.item()
+    avg_val_loss = val_loss / len(val_loader)
+    model.train()
+    return avg_val_loss
 
 def collate_fn(batch):
     input_ids = pad_sequence([item["input_ids"] for item in batch], batch_first=True, padding_value=0)
@@ -98,15 +130,16 @@ if __name__ == "__main__":
     parser.add_argument("--output_directory", type=str, default=None, help="Directory to save the trained model and logs.")
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate for the optimizer.")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size for training.")  
-    parser.add_argument("--num_epochs", type=int, default=1, help="Number of training epochs.")
+    parser.add_argument("--num_epochs", type=int, default=100, help="Number of training epochs.")
     parser.add_argument("--save_every", type=int, default=10, help="Save model every N epochs.")
+    parser.add_argument("--patience", type=int, default=3, help="Patience for early stopping.")
 
     args = parser.parse_args()
 
 
     df = pd.read_csv(args.csv_path)
     train_df = df[df["split"] == "train"]
-    train_df = train_df [:100]
+    val_df = df[df["split"] == "val"]
 
     # Use GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -122,6 +155,9 @@ if __name__ == "__main__":
     # Prepare DataLoader
     train_dataset = CLIPDataset(train_df, image_encoder.processor,  text_encoder.tokenizer)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
+
+    val_dataset = CLIPDataset(val_df, image_encoder.processor, text_encoder.tokenizer)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
 
     model = FinetuneCLIP(image_encoder, text_encoder)
     model = model.to(device)
@@ -141,7 +177,7 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
     writer = SummaryWriter(os.path.join(output_dir,"tensorboard_logs"))
 
-    train(model, train_loader, optimizer, writer, output_dir, args.num_epochs, device, loss, args.save_every) 
-            
-    save_training_config(output_dir,num_epochs=args.num_epochs,optimizer=optimizer,batch_size=train_loader.batch_size,
-        learning_rate=args.learning_rate,device=device, train_loader=train_loader, additional_params={"loss": loss.__name__})
+    stopped_epoch = train(model, train_loader, optimizer, writer, output_dir, args.num_epochs, device, loss, args.save_every, args.patience)
+    
+    save_training_config(output_dir, num_epochs=stopped_epoch, optimizer=optimizer, batch_size=train_loader.batch_size,
+    learning_rate=args.learning_rate, device=device, train_loader=train_loader, additional_params={"loss": loss.__name__, "early_stopp_epoch": stopped_epoch})
