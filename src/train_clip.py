@@ -206,6 +206,7 @@ if __name__ == "__main__":
         val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
 
     model = FinetuneCLIP(image_encoder, text_encoder)
+    model = torch.nn.DataParallel(model)
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
 
