@@ -28,9 +28,6 @@ class CLIPDataset(Dataset):
         processed_image = self.image_preprocessor(images=image, return_tensors="pt")
         pixel_values = processed_image["pixel_values"].squeeze(0)
 
-        # processed = self.processor(images=image, return_tensors="pt")
-        # pixel_values = processed["pixel_values"].to(self.device)
-
         # Tokenize text
         tokens = self.text_tokenizer([text], return_tensors="pt", padding=True, truncation=True)
         input_ids = tokens["input_ids"].squeeze(0)

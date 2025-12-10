@@ -1,65 +1,33 @@
-# Source Code (`src/`) Overview
+# Training Disentangled CLIP Model (`train_clip.py`)
 
-This folder contains the core source code for the FEIDEGGER multimodal learning and retrieval project.
+This script trains a CLIP-style model with disentangled or finetuned losses on the FEIDEGGER dataset.
 
-## Structure
+## Features
 
-- **models/**  
-  Model classes and wrappers for text and vision encoders (e.g., CLIP, DistilBERT).
-
-- **losses/**  
-  Custom loss functions, including disentanglement and contrastive losses.
-
-- **data_loader.py**  
-  Dataset and DataLoader utilities for loading and batching data.
-
-- **utils.py**  
-  General utility functions for configuration, weights, and model loading.
-
-- **compute_embeddings.py**  
-  Scripts for generating and saving image/text embeddings.
-
-- **clip_finetuned.py**  
-  Finetuning CLIP models on the FEIDEGGER dataset.
-
-- **clip_disentangled_loss2.py**  
-  Training with disentanglement loss to separate content and subjective information.
-
-- **retrieval.py**  
-  Evaluation scripts for retrieval metrics (Recall@K, Precision@K, etc.).
+- Loads image and text encoders (CLIP vision and DistilBERT text).
+- Supports both disentangled and finetuned contrastive loss.
+- Saves model checkpoints and training configuration.
+- Logs training progress to TensorBoard.
 
 ## Usage
 
-- Import modules from `src/` in your training, evaluation, or visualization scripts.
-- Run scripts directly for tasks like finetuning, embedding computation, or metric evaluation.
+```bash
+python -m src.train_clip --csv_path <path_to_csv> --pretrained_dir <pretrained_models_dir> --output_directory <output_dir> --learning_rate 1e-4 --batch_size 16 --num_epochs 10 --model_kind disentangled
+```
 
-## How to Train
+### Arguments
 
-To train a model on the FEIDEGGER dataset:
+- `--csv_path`: Path to CSV file with image paths, text, and split info.
+- `--pretrained_dir`: Directory containing pretrained CLIP and DistilBERT models.
+- `--output_directory`: Directory to save trained models and logs.
+- `--learning_rate`: Learning rate for optimizer.
+- `--batch_size`: Training batch size.
+- `--num_epochs`: Number of training epochs.
+- `--model_kind`: Model type (`disentangled` or `finetuned`).
+- `--save_every`: Save model every N epochs.
 
-1. **Prepare the dataset and embeddings**  
-   Make sure your data and embeddings are ready (see main README).
+## Output
 
-2. **Finetune CLIP**  
-   Run:
-   ```
-   python src/clip_finetuned.py
-   ```
-   This will finetune CLIP on the FEIDEGGER dataset.
-
-3. **Train with Disentanglement Loss**  
-   Run:
-   ```
-   python src/clip_disentangled_loss2.py
-   ```
-   This will train the model with disentanglement loss to separate content and subjective information.
-
-4. **Monitor Training**  
-   Use TensorBoard or logs to monitor loss and metrics.
-
-## Notes
-
-- Ensure all dependencies in `requirements.txt` are installed.
-- See the main project README for setup and workflow instructions.
-
----
+- Model checkpoints in the output directory.
+- TensorBoard logs in `output_dir/tensorboard_logs`.
+- Training configuration in `output_dir/training_config.json`.
