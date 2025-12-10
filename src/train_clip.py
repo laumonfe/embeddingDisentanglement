@@ -2,7 +2,9 @@
 import os
 import json
 import torch
+import random
 import argparse
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -13,8 +15,12 @@ from torch.utils.tensorboard import SummaryWriter
 from src.models import FinetuneCLIP
 from src.data_loader import CLIPDataset, GroupedCLIPDataset, group_by_image
 from src.models import PretrainedCLIPVision, PretrainedDistilBert, FinetuneCLIP
-from src.losses import disentangled_clip_loss, contrastive_loss, grouped_contrastive_loss
+from src.losses import disentangled_loss, contrastive_loss, grouped_contrastive_loss, grouped_disentangled_loss
 
+seed = 42
+torch.manual_seed(seed)
+random.seed(seed)
+np.random.seed(seed)
 
 def train(model, train_loader, optimizer, writer, output_directory, num_epochs,
     device, loss_fn, save_every=10, patience=3):
@@ -33,7 +39,7 @@ def train(model, train_loader, optimizer, writer, output_directory, num_epochs,
         for batch_idx, batch in enumerate(progress_bar):
             group_indices = batch["group_indices"]
             optimizer.zero_grad()
-            batch = {k: v.to(device) for k, v in batch.items()}
+            batch = {k: v.to(device) if torch.is_tensor(v) else v for k, v in batch.items()}    
             outputs = model(
                 pixel_values=batch["pixel_values"],
                 input_ids=batch["input_ids"],
@@ -81,13 +87,16 @@ def validate(model, val_loader, device, loss_fn):
     val_loss = 0.0
     with torch.no_grad():
         for batch in val_loader:
-            batch = {k: v.to(device) for k, v in batch.items()}
+            batch = {k: v.to(device) if torch.is_tensor(v) else v for k, v in batch.items()}
             outputs = model(
                 pixel_values=batch["pixel_values"],
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"]
             )
-            loss = loss_fn(outputs["vision_embeds"], outputs["text_embeds"])
+            if "group_indices" in batch:
+                loss = loss_fn(outputs["vision_embeds"], outputs["text_embeds"], group_indices=batch["group_indices"])
+            else:
+                loss = loss_fn(outputs["vision_embeds"], outputs["text_embeds"])
             val_loss += loss.item()
     avg_val_loss = val_loss / len(val_loader)
     model.train()
@@ -106,12 +115,17 @@ def collate_fn(batch):
 def grouped_collate_fn(batch):
     # batch: list of dicts, each for one image and its captions
     pixel_values = torch.stack([item["pixel_values"] for item in batch])  # [B, D]
-    input_ids = torch.cat([item["input_ids"] for item in batch], dim=0)  # [N, L]
-    attention_mask = torch.cat([item["attention_mask"] for item in batch], dim=0)
+    input_ids_list = [caption for item in batch for caption in item["input_ids"]]
+    attention_mask_list = [caption for item in batch for caption in item["attention_mask"]]
+
+    # Pad all input_ids and attention_mask to the same length
+    input_ids = pad_sequence(input_ids_list, batch_first=True, padding_value=0)
+    attention_mask = pad_sequence(attention_mask_list, batch_first=True, padding_value=0)
+
     group_indices = []
     idx = 0
     for item in batch:
-        n = item["input_ids"].shape[0]
+        n = len(item["input_ids"])
         group_indices.append(list(range(idx, idx + n)))
         idx += n
     return {
@@ -121,36 +135,6 @@ def grouped_collate_fn(batch):
         "group_indices": group_indices
     }
 
-# def collate_fn(batch):
-#     # batch: list of dicts from __getitem__
-#     # Group by image_path
-#     from collections import defaultdict
-#     grouped = defaultdict(list)
-#     for item in batch:
-#         grouped[item['image_path']].append(item)
-#     pixel_values = []
-#     input_ids = []
-#     attention_mask = []
-#     item_idxs = []
-#     desc_idxs = []
-#     image_paths = []
-#     for img_path, items in grouped.items():
-#         # Use the same image for all descriptions
-#         for item in items:
-#             pixel_values.append(item['pixel_values'])
-#             input_ids.append(item['input_ids'])
-#             attention_mask.append(item['attention_mask'])
-#             item_idxs.append(item['item_idx'])
-#             desc_idxs.append(item['desc_idx'])
-#             image_paths.append(img_path)
-#     return {
-#         'pixel_values': torch.stack(pixel_values),
-#         'input_ids': torch.stack(input_ids),
-#         'attention_mask': torch.stack(attention_mask),
-#         'item_idx': item_idxs,
-#         'desc_idx': desc_idxs,
-#         'image_path': image_paths
-#     }
 
 def save_training_config(save_directory, num_epochs, optimizer, batch_size, learning_rate, device, train_loader, additional_params=None):
     """
@@ -173,12 +157,12 @@ def save_training_config(save_directory, num_epochs, optimizer, batch_size, lear
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Train Disentangled CLIP model on FEIDEGGER dataset.")
-    parser.add_argument("--csv_path",type=str,default="dataset/feidegger_visualization_data.csv",help="Path to the CSV file containing image paths and text descriptions.")
+    parser.add_argument("--csv_path",type=str,default="data/feidegger_metadata.csv",help="Path to the CSV file containing image paths and text descriptions.")
     parser.add_argument("--model_kind", choices=["finetuned", "disentangled"], default="disentangled", help="Which model to use: finetuned or disentangled.")
     parser.add_argument("--pretrained_dir", type=str, default="pretrained_models", help="Directory containing pretrained CLIP and DistilBERT models.")
     parser.add_argument("--output_directory", type=str, default=None, help="Directory to save the trained model and logs.")
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate for the optimizer.")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size for training.")  
+    parser.add_argument("--batch_size", type=int, default=8, help="Batch size for training.")  
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of training epochs.")
     parser.add_argument("--save_every", type=int, default=10, help="Save model every N epochs.")
     parser.add_argument("--patience", type=int, default=3, help="Patience for early stopping.")
@@ -225,16 +209,18 @@ if __name__ == "__main__":
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
 
-    if args.model_kind == "disentangled":
-        loss = disentangled_clip_loss
-    elif args.model_kind == "finetuned":
-        loss = contrastive_loss
-        if args.dataset_type == "grouped":
-            loss = grouped_contrastive_loss  
+    loss_map = {
+        ("disentangled", "default"): disentangled_loss,
+        ("disentangled", "grouped"): grouped_disentangled_loss,
+        ("finetuned", "default"): contrastive_loss,
+        ("finetuned", "grouped"): grouped_contrastive_loss,
+    }
+
+    loss = loss_map[(args.model_kind, args.dataset_type)]
 
 
     if args.output_directory is None:
-         output_dir = f"output/{args.model_kind}_clip"
+         output_dir = f"output/{args.model_kind}_{args.dataset_type}_clip"
     else:
          output_dir = args.output_directory
 
@@ -244,4 +230,4 @@ if __name__ == "__main__":
     stopped_epoch = train(model, train_loader, optimizer, writer, output_dir, args.num_epochs, device, loss, args.save_every, args.patience)
     
     save_training_config(output_dir, num_epochs=stopped_epoch, optimizer=optimizer, batch_size=train_loader.batch_size,
-    learning_rate=args.learning_rate, device=device, train_loader=train_loader, additional_params={"loss": loss.__name__, "early_stopp_epoch": stopped_epoch})
+    learning_rate=args.learning_rate, device=device, train_loader=train_loader, additional_params={"loss": loss.__name__, "early_stopp_epoch": stopped_epoch, "model_kind": args.model_kind, "dataset_type": args.dataset_type, "seed": seed})

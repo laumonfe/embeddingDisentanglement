@@ -32,7 +32,7 @@ def grouped_contrastive_loss(image_embeds, text_embeds, group_indices, temperatu
     return loss
 
 
-def disentangled_clip_loss(image_embeds, text_embeds, group_indices, temperature=0.07, alpha=1.0, beta=1.0, gamma=0.1):
+def disentangled_loss(image_embeds, text_embeds, group_indices, temperature=0.07, alpha=1.0, beta=1.0, gamma=0.1):
     D = text_embeds.shape[1]
     D_c = D // 2  # first half: content, second half: subjective
     text_content = text_embeds[:, :D_c]
@@ -40,7 +40,13 @@ def disentangled_clip_loss(image_embeds, text_embeds, group_indices, temperature
 
     image_embeds_norm = nn.functional.normalize(image_embeds, dim=-1)
     text_content_norm = nn.functional.normalize(text_content, dim=-1)
-    image_content = image_embeds_norm  # Use full image embedding as content
+    
+    # Deterministic, non-trainable projection
+    if image_embeds_norm.shape[1] != D_c:
+        proj_matrix = get_fixed_projection(image_embeds_norm.shape[1], D_c, image_embeds_norm.device)
+        image_content = image_embeds_norm @ proj_matrix  # [B, D_c]
+    else:
+        image_content = image_embeds_norm
 
     logits = image_content @ text_content_norm.t() / temperature  # [B, N]
 
@@ -59,28 +65,37 @@ def disentangled_clip_loss(image_embeds, text_embeds, group_indices, temperature
     return loss
 
 
-def grouped_disentangled_clip_loss(image_embeds, text_embeds, group_indices, temperature=0.07, alpha=1.0, beta=1.0, gamma=0.1):
+def grouped_disentangled_loss(image_embeds, text_embeds, group_indices, temperature=0.07, alpha=1.0, beta=1.0, gamma=0.1):
     D = text_embeds.shape[1]
-    D_c = D // 2  # first half: content, second half: subjective
+    D_c = D // 2
     text_content = text_embeds[:, :D_c]
     text_subjective = text_embeds[:, D_c:]
 
     image_embeds_norm = nn.functional.normalize(image_embeds, dim=-1)
     text_content_norm = nn.functional.normalize(text_content, dim=-1)
-    image_content = image_embeds_norm  # Use full image embedding as content
 
-    logits = image_content @ text_content_norm.t() / temperature  # [B, N]
+    # Deterministic, non-trainable projection
+    if image_embeds_norm.shape[1] != D_c:
+        proj_matrix = get_fixed_projection(image_embeds_norm.shape[1], D_c, image_embeds_norm.device)
+        image_content = image_embeds_norm @ proj_matrix  # [B, D_c]
+    else:
+        image_content = image_embeds_norm
 
-    # Multi-label targets: for each image, all its captions are positives
+    logits = image_content @ text_content_norm.t() / temperature
+
     targets = torch.zeros_like(logits)
     for i, indices in enumerate(group_indices):
         targets[i, indices] = 1
 
     loss_content_img = nn.BCEWithLogitsLoss()(logits, targets)
-
     text_subjective_norm = nn.functional.normalize(text_subjective, dim=-1)
-    # Subjective losses only use text_subjective
     loss_subjective_content = (text_content_norm * text_subjective_norm).sum(dim=1).abs().mean()
-
     loss = alpha * loss_content_img + gamma * loss_subjective_content
     return loss
+
+
+def get_fixed_projection(in_dim, out_dim, device):
+    torch.manual_seed(42)  # for reproducibility
+    proj_matrix = torch.randn(in_dim, out_dim, device=device)
+    proj_matrix = nn.functional.normalize(proj_matrix, dim=0)
+    return proj_matrix
