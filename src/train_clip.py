@@ -11,9 +11,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 # Custom imports 
 from src.models import FinetuneCLIP
-from src.data_loader import CLIPDataset
-from src.losses import disentangled_clip_loss, contrastive_loss
+from src.data_loader import CLIPDataset, GroupedCLIPDataset, group_by_image
 from src.models import PretrainedCLIPVision, PretrainedDistilBert, FinetuneCLIP
+from src.losses import disentangled_clip_loss, contrastive_loss, grouped_contrastive_loss
 
 
 def train(model, train_loader, optimizer, writer, output_directory, num_epochs,
@@ -31,6 +31,7 @@ def train(model, train_loader, optimizer, writer, output_directory, num_epochs,
         epoch_loss = 0.0
         progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}", leave=False)
         for batch_idx, batch in enumerate(progress_bar):
+            group_indices = batch["group_indices"]
             optimizer.zero_grad()
             batch = {k: v.to(device) for k, v in batch.items()}
             outputs = model(
@@ -38,7 +39,7 @@ def train(model, train_loader, optimizer, writer, output_directory, num_epochs,
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"]
             )
-            loss = loss_fn(outputs["vision_embeds"], outputs["text_embeds"])
+            loss = loss_fn(outputs["vision_embeds"], outputs["text_embeds"], group_indices=group_indices)
             loss.backward()
             optimizer.step()
             torch.cuda.empty_cache()
@@ -102,6 +103,54 @@ def collate_fn(batch):
         "attention_mask": attention_mask
     }
 
+def grouped_collate_fn(batch):
+    # batch: list of dicts, each for one image and its captions
+    pixel_values = torch.stack([item["pixel_values"] for item in batch])  # [B, D]
+    input_ids = torch.cat([item["input_ids"] for item in batch], dim=0)  # [N, L]
+    attention_mask = torch.cat([item["attention_mask"] for item in batch], dim=0)
+    group_indices = []
+    idx = 0
+    for item in batch:
+        n = item["input_ids"].shape[0]
+        group_indices.append(list(range(idx, idx + n)))
+        idx += n
+    return {
+        "pixel_values": pixel_values,
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "group_indices": group_indices
+    }
+
+# def collate_fn(batch):
+#     # batch: list of dicts from __getitem__
+#     # Group by image_path
+#     from collections import defaultdict
+#     grouped = defaultdict(list)
+#     for item in batch:
+#         grouped[item['image_path']].append(item)
+#     pixel_values = []
+#     input_ids = []
+#     attention_mask = []
+#     item_idxs = []
+#     desc_idxs = []
+#     image_paths = []
+#     for img_path, items in grouped.items():
+#         # Use the same image for all descriptions
+#         for item in items:
+#             pixel_values.append(item['pixel_values'])
+#             input_ids.append(item['input_ids'])
+#             attention_mask.append(item['attention_mask'])
+#             item_idxs.append(item['item_idx'])
+#             desc_idxs.append(item['desc_idx'])
+#             image_paths.append(img_path)
+#     return {
+#         'pixel_values': torch.stack(pixel_values),
+#         'input_ids': torch.stack(input_ids),
+#         'attention_mask': torch.stack(attention_mask),
+#         'item_idx': item_idxs,
+#         'desc_idx': desc_idxs,
+#         'image_path': image_paths
+#     }
 
 def save_training_config(save_directory, num_epochs, optimizer, batch_size, learning_rate, device, train_loader, additional_params=None):
     """
@@ -133,7 +182,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of training epochs.")
     parser.add_argument("--save_every", type=int, default=10, help="Save model every N epochs.")
     parser.add_argument("--patience", type=int, default=3, help="Patience for early stopping.")
-
+    parser.add_argument("--dataset_type", type=str, choices=["default", "grouped"], default="default", help="Type of dataset grouping: default or grouped")
     args = parser.parse_args()
 
 
@@ -153,11 +202,24 @@ if __name__ == "__main__":
 
 
     # Prepare DataLoader
-    train_dataset = CLIPDataset(train_df, image_encoder.processor,  text_encoder.tokenizer)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
+    if args.dataset_type == "grouped":
 
-    val_dataset = CLIPDataset(val_df, image_encoder.processor, text_encoder.tokenizer)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
+        train_grouped = group_by_image(train_df)
+        val_grouped = group_by_image(val_df)
+
+        train_dataset = GroupedCLIPDataset(train_grouped, image_encoder.processor, text_encoder.tokenizer)
+        val_dataset = GroupedCLIPDataset(val_grouped, image_encoder.processor, text_encoder.tokenizer)
+
+        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn= grouped_collate_fn)
+        val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=grouped_collate_fn)
+    
+    elif args.dataset_type == "default":
+
+        train_dataset = CLIPDataset(train_df, image_encoder.processor,  text_encoder.tokenizer)
+        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
+
+        val_dataset = CLIPDataset(val_df, image_encoder.processor, text_encoder.tokenizer)
+        val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
 
     model = FinetuneCLIP(image_encoder, text_encoder)
     model = model.to(device)
@@ -167,6 +229,8 @@ if __name__ == "__main__":
         loss = disentangled_clip_loss
     elif args.model_kind == "finetuned":
         loss = contrastive_loss
+        if args.dataset_type == "grouped":
+            loss = grouped_contrastive_loss  
 
 
     if args.output_directory is None:
