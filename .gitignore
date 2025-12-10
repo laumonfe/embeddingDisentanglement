@@ -6,8 +6,12 @@ pretrained_models/*
 !pretrained_models/README.md
 !pretrained_models/setup_pretrained_models.py
 
+dataset/
 checkpoints/
-data/
+!data/feidegger_crawler.py
+data/embeddings/
+data/intra_class_metrics/
+data/feidegger_metadata.csv
 
 # Python bytecode
 __pycache__/
