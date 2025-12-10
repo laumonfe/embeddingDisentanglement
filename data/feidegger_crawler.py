@@ -1,6 +1,5 @@
 import os
 import json
-import random
 import pandas as pd
 import requests
 from tqdm import tqdm
@@ -62,7 +61,6 @@ class FeideggerCrawler:
                     'image_path': image_path,
                     'text': text
                 })
-        # Shuffle item_idx
         item_indices = list(item_idx_to_pairs.keys())
         n_items = len(item_indices)
         train_cut = int(0.8 * n_items)
