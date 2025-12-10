@@ -159,7 +159,7 @@ class FinetuneCLIP(nn.Module):
                 "out_features": self.vision_encoder.visual_projection.out_features,
                 "bias": self.vision_encoder.visual_projection.bias is not None
             }
-            with open(os.path.join(save_directory, "vision_encoder/config.json"), "w", encoding="utf-8") as f:
+            with open(os.path.join(save_directory, "vision_encoder/proj_config.json"), "w", encoding="utf-8") as f:
                 json.dump(vision_config, f, indent=2)
 
         # Save text encoder weights/config using HuggingFace method if available
