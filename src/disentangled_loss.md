@@ -40,3 +40,44 @@ These methods improve interpretability, transferability, and robustness in multi
 Summary:
 Your disentangled_clip_loss() is inspired by methods in these papers: splitting embeddings, aligning content, and enforcing independence/orthogonality.
 This works because it forces the model to learn representations where content and subjective information are separated, improving cross-modal retrieval and interpretability.
+
+
+
+
+The disentangled_loss function is designed to encourage the model to learn disentangled representations for image and text pairs, separating "content" and "subjective" information in the embedding space.
+
+Detailed Explanation
+Embedding Partitioning:
+The text embeddings are split into two halves:
+
+The first half (text_content) is intended to capture objective content.
+The second half (text_subjective) is meant to encode subjective or stylistic information.
+Image-Content Alignment:
+Image embeddings are normalized and, if needed, projected into the same dimensionality as text_content using a fixed, non-trainable projection matrix. This ensures that image and text content features are comparable.
+
+Multi-label Contrastive Loss:
+The core alignment is performed by computing logits as the dot product between image content and text content embeddings, scaled by a temperature parameter.
+For each image, all its associated captions are considered positive matches. The targets matrix is constructed such that for each image, the positions corresponding to its captions are set to 1.
+The loss for this part is the binary cross-entropy between the logits and the multi-label targets:
+
+​
+ =BCEWithLogits(logits,targets)
+This encourages the model to bring together image and text content embeddings for matching pairs.
+
+Disentanglement Regularization:
+To enforce separation between content and subjective features, the function computes the mean absolute value of the dot product between normalized content and subjective text embeddings:
+
+
+​
+ 
+This term penalizes overlap between content and subjective subspaces, encouraging them to be orthogonal.
+
+Total Loss:
+The final loss is a weighted sum:
+
+
+Why It Generates Better Embeddings
+By explicitly separating content and subjective information, this loss encourages the model to learn factorized embeddings where different semantic aspects are encoded independently. This improves interpretability and enables downstream tasks (such as retrieval, editing, or clustering) to leverage specific dimensions of the embedding space.
+Mathematically, the orthogonality constraint reduces entanglement between features, leading to more robust and generalizable representations.
+
+

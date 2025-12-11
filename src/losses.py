@@ -49,13 +49,8 @@ def disentangled_loss(image_embeds, text_embeds, group_indices, temperature=0.07
         image_content = image_embeds_norm
 
     logits = image_content @ text_content_norm.t() / temperature  # [B, N]
-
-    # Multi-label targets: for each image, all its captions are positives
-    targets = torch.zeros_like(logits)
-    for i, indices in enumerate(group_indices):
-        targets[i, indices] = 1
-
-    loss_content_img = nn.BCEWithLogitsLoss()(logits, targets)
+    labels = torch.arange(logits.size(0)).to(logits.device)
+    loss_content_img = (nn.CrossEntropyLoss()(logits, labels) + nn.CrossEntropyLoss()(logits.t(), labels)) / 2
 
     text_subjective_norm = nn.functional.normalize(text_subjective, dim=-1)
     # Subjective losses only use text_subjective

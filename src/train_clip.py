@@ -22,8 +22,8 @@ torch.manual_seed(seed)
 random.seed(seed)
 np.random.seed(seed)
 
-def train(model, train_loader, optimizer, writer, output_directory, num_epochs,
-    device, loss_fn, save_every=10, patience=3):
+def train(model, train_loader, val_loader, optimizer, writer, output_directory, num_epochs,
+    device, loss_fn, save_every, patience):
     
     best_loss = float("inf")
     best_model_dir = None
@@ -37,9 +37,12 @@ def train(model, train_loader, optimizer, writer, output_directory, num_epochs,
         epoch_loss = 0.0
         progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}", leave=False)
         for batch_idx, batch in enumerate(progress_bar):
-            group_indices = batch["group_indices"]
             optimizer.zero_grad()
-            batch = {k: v.to(device) if torch.is_tensor(v) else v for k, v in batch.items()}    
+            batch = {k: v.to(device) if torch.is_tensor(v) else v for k, v in batch.items()} 
+            if "group_indices" in batch:   
+                group_indices = batch["group_indices"]
+            else :
+                group_indices = None
             outputs = model(
                 pixel_values=batch["pixel_values"],
                 input_ids=batch["input_ids"],
@@ -56,7 +59,7 @@ def train(model, train_loader, optimizer, writer, output_directory, num_epochs,
 
         if (epoch + 1) % save_every == 0:
             step_save_dir = os.path.join(output_directory, f"epoch_{epoch+1}")
-            model.save_from_pretrained(step_save_dir)
+            model.module.save_from_pretrained(step_save_dir)
 
         avg_epoch_loss = epoch_loss / len(train_loader)
         avg_val_loss = validate(model, val_loader, device, loss_fn)
@@ -69,7 +72,7 @@ def train(model, train_loader, optimizer, writer, output_directory, num_epochs,
             best_val_loss = avg_val_loss
             epochs_no_improve = 0
             best_model_dir = os.path.join(output_directory, "best_model")
-            model.save_from_pretrained(best_model_dir)
+            model.module.save_from_pretrained(best_model_dir)
         else:
             epochs_no_improve += 1
             if epochs_no_improve >= patience:
@@ -162,7 +165,7 @@ if __name__ == "__main__":
     parser.add_argument("--pretrained_dir", type=str, default="pretrained_models", help="Directory containing pretrained CLIP and DistilBERT models.")
     parser.add_argument("--output_directory", type=str, default=None, help="Directory to save the trained model and logs.")
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate for the optimizer.")
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size for training.")  
+    parser.add_argument("--batch_size", type=int, default=16, help="Batch size for training.")  
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of training epochs.")
     parser.add_argument("--save_every", type=int, default=10, help="Save model every N epochs.")
     parser.add_argument("--patience", type=int, default=3, help="Patience for early stopping.")
@@ -176,6 +179,9 @@ if __name__ == "__main__":
 
     # Use GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs (DataParallel enabled)")
 
     # Load pretrained models
     pretrained_img_model_path = os.path.join(args.pretrained_dir, "sentence-transformers--clip-ViT-B-32")
@@ -228,7 +234,9 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
     writer = SummaryWriter(os.path.join(output_dir,"tensorboard_logs"))
 
-    stopped_epoch = train(model, train_loader, optimizer, writer, output_dir, args.num_epochs, device, loss, args.save_every, args.patience)
-    
+    stopped_epoch = train(
+        model, train_loader, val_loader, optimizer, writer, output_dir,
+        args.num_epochs, device, loss, args.save_every, args.patience
+    )    
     save_training_config(output_dir, num_epochs=stopped_epoch, optimizer=optimizer, batch_size=train_loader.batch_size,
     learning_rate=args.learning_rate, device=device, train_loader=train_loader, additional_params={"loss": loss.__name__, "early_stopp_epoch": stopped_epoch, "model_kind": args.model_kind, "dataset_type": args.dataset_type, "seed": seed})
