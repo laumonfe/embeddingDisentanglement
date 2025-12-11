@@ -96,10 +96,13 @@ def validate(model, val_loader, device, loss_fn):
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"]
             )
-            if "group_indices" in batch:
-                loss = loss_fn(outputs["vision_embeds"], outputs["text_embeds"], group_indices=batch["group_indices"])
-            else:
-                loss = loss_fn(outputs["vision_embeds"], outputs["text_embeds"])
+            if "group_indices" in batch:   
+                group_indices = batch["group_indices"]
+            else :
+                group_indices = None
+
+            loss = loss_fn(outputs["vision_embeds"], outputs["text_embeds"], group_indices=group_indices)
+
             val_loss += loss.item()
     avg_val_loss = val_loss / len(val_loader)
     model.train()
@@ -239,4 +242,4 @@ if __name__ == "__main__":
         args.num_epochs, device, loss, args.save_every, args.patience
     )    
     save_training_config(output_dir, num_epochs=stopped_epoch, optimizer=optimizer, batch_size=train_loader.batch_size,
-    learning_rate=args.learning_rate, device=device, train_loader=train_loader, additional_params={"loss": loss.__name__, "early_stopp_epoch": stopped_epoch, "model_kind": args.model_kind, "dataset_type": args.dataset_type, "seed": seed})
+    learning_rate=args.learning_rate, device=device, train_loader=train_loader, additional_params={"loss": loss.__name__, "early_stop_epoch": stopped_epoch, "model_kind": args.model_kind, "dataset_type": args.dataset_type, "seed": seed})
