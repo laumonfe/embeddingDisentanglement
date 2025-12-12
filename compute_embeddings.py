@@ -50,7 +50,9 @@ def get_default_paths(model_kind, dataset_type, device):
         txt_model_path = "pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
         img_encoder = PretrainedCLIPVision(img_model_path, device)
         txt_encoder = PretrainedDistilBert(txt_model_path, device)
-        emb_dir = f"data/embeddings/baseline_clip-ViT-B-32-multilingual-v1"
+        emb_dir = f"data/embeddings/{model_kind}_clip-ViT-B-32-multilingual-v1"
+        img_emb_path = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
+        txt_emb_path = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
     else:
         base = f"output/{model_kind}_{dataset_type}_clip"
         img_model_path = os.path.join(base, "best_model", "vision_encoder")
@@ -58,7 +60,9 @@ def get_default_paths(model_kind, dataset_type, device):
         img_encoder = ProjectedCLIPVision(img_model_path, device)
         txt_encoder = ProjectedDistilBert(txt_model_path, device)
         emb_dir = f"data/embeddings/{model_kind}_{dataset_type}_clip-ViT-B-32-multilingual-v1"
-    return img_encoder, txt_encoder, emb_dir
+        img_emb_path = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{dataset_type}.npy")
+        txt_emb_path = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{dataset_type}.npy")
+    return img_encoder, txt_encoder, img_emb_path, txt_emb_path
 if __name__ == "__main__":
     
     import argparse
@@ -72,7 +76,7 @@ if __name__ == "__main__":
     
     CSV_PATH = args.csv_path
     df = pd.read_csv(CSV_PATH)
-
+    df = df[:100]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if args.model_kind == "all":
@@ -84,9 +88,7 @@ if __name__ == "__main__":
             
         for model_kind, dataset_type in configs:
             try:
-                img_encoder, txt_encoder, emb_dir = get_default_paths(model_kind, dataset_type, device)
-                img_emb_path = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{dataset_type}.npy")
-                txt_emb_path = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{dataset_type}.npy")
+                img_encoder, txt_encoder, img_emb_path, txt_emb_path = get_default_paths(model_kind, dataset_type, device)
                 compute_embeddings(img_encoder, txt_encoder, df, img_emb_path, txt_emb_path)
             except Exception as e:
                 print(f"Failed for {model_kind}, {dataset_type}: {e}")
@@ -95,8 +97,6 @@ if __name__ == "__main__":
     else: 
 
         print(f"Processing: {args.model_kind}, {args.dataset_type}")
-        img_encoder, txt_encoder, emb_dir = get_default_paths(args.model_kind, args.dataset_type, device)
-        img_emb_path = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{args.model_kind}_{args.dataset_type}.npy")
-        txt_emb_path = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{args.model_kind}_{args.dataset_type}.npy")
+        img_encoder, txt_encoder, img_emb_path, txt_emb_path = get_default_paths(args.model_kind, args.dataset_type, device)
         compute_embeddings(img_encoder, txt_encoder, df, img_emb_path, txt_emb_path)
 

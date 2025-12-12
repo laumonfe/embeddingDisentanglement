@@ -12,6 +12,7 @@ checkpoints/
 data/embeddings/
 data/intra_class_metrics/
 data/feidegger_metadata.csv
+data/retrieval_results/
 
 # Python bytecode
 __pycache__/
