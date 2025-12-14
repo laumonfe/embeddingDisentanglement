@@ -40,57 +40,59 @@ def disentangled_loss(image_embeds, text_embeds, group_indices, temperature=0.07
 
     image_embeds_norm = nn.functional.normalize(image_embeds, dim=-1)
     text_content_norm = nn.functional.normalize(text_content, dim=-1)
-    
-    # Deterministic, non-trainable projection
-    if image_embeds_norm.shape[1] != D_c:
-        proj_matrix = get_fixed_projection(image_embeds_norm.shape[1], D_c, image_embeds_norm.device)
-        image_content = image_embeds_norm @ proj_matrix  # [B, D_c]
-    else:
-        image_content = image_embeds_norm
-
-    logits = image_content @ text_content_norm.t() / temperature  # [B, N]
+    image_content = image_embeds_norm[:, :D_c]
+    logits = image_content @ text_content_norm.t() / temperature
     labels = torch.arange(logits.size(0)).to(logits.device)
     loss_content_img = (nn.CrossEntropyLoss()(logits, labels) + nn.CrossEntropyLoss()(logits.t(), labels)) / 2
 
     text_subjective_norm = nn.functional.normalize(text_subjective, dim=-1)
-    # Subjective losses only use text_subjective
+    image_subjective = image_embeds_norm[:, D_c:]
+    loss_subjective_img = (image_subjective * text_subjective_norm).sum(dim=1).abs().mean()
     loss_subjective_content = (text_content_norm * text_subjective_norm).sum(dim=1).abs().mean()
 
-    loss = alpha * loss_content_img + gamma * loss_subjective_content
+    loss = alpha * loss_content_img + beta * loss_subjective_img + gamma * loss_subjective_content
     return loss
+
+
 
 
 def grouped_disentangled_loss(image_embeds, text_embeds, group_indices, temperature=0.07, alpha=1.0, beta=1.0, gamma=0.1):
     D = text_embeds.shape[1]
-    D_c = D // 2
+    D_c = D // 2  # first half: content, second half: subjective
     text_content = text_embeds[:, :D_c]
     text_subjective = text_embeds[:, D_c:]
 
     image_embeds_norm = nn.functional.normalize(image_embeds, dim=-1)
     text_content_norm = nn.functional.normalize(text_content, dim=-1)
+    image_content = image_embeds_norm[:, :D_c]
 
-    # Deterministic, non-trainable projection
-    if image_embeds_norm.shape[1] != D_c:
-        proj_matrix = get_fixed_projection(image_embeds_norm.shape[1], D_c, image_embeds_norm.device)
-        image_content = image_embeds_norm @ proj_matrix  # [B, D_c]
-    else:
-        image_content = image_embeds_norm
-
-    logits = image_content @ text_content_norm.t() / temperature
-
+    # Multi-label contrastive loss (grouped)
+    logits = image_content @ text_content_norm.t() / temperature  # [B, N]
     targets = torch.zeros_like(logits)
     for i, indices in enumerate(group_indices):
         targets[i, indices] = 1
-
     loss_content_img = nn.BCEWithLogitsLoss()(logits, targets)
+
     text_subjective_norm = nn.functional.normalize(text_subjective, dim=-1)
+    image_subjective = image_embeds_norm[:, D_c:]
+    loss_subjective_img = (image_subjective * text_subjective_norm).sum(dim=1).abs().mean()
     loss_subjective_content = (text_content_norm * text_subjective_norm).sum(dim=1).abs().mean()
-    loss = alpha * loss_content_img + gamma * loss_subjective_content
+
+    loss = alpha * loss_content_img + beta * loss_subjective_img + gamma * loss_subjective_content
     return loss
 
 
-def get_fixed_projection(in_dim, out_dim, device):
-    torch.manual_seed(42)  # for reproducibility
-    proj_matrix = torch.randn(in_dim, out_dim, device=device)
-    proj_matrix = nn.functional.normalize(proj_matrix, dim=0)
-    return proj_matrix
+
+
+
+def covariance_disentanglement_loss(content, subjective):
+    """
+    Penalizes covariance between content and subjective features to encourage disentanglement.
+    """
+    # Center the features
+    content_centered = content - content.mean(dim=0, keepdim=True)
+    subjective_centered = subjective - subjective.mean(dim=0, keepdim=True)
+    # Compute covariance matrix between content and subjective
+    cov = torch.matmul(content_centered.T, subjective_centered) / (content.shape[0] - 1)
+    # Penalize the squared Frobenius norm (sum of squares of all elements)
+    return (cov ** 2).mean()

@@ -65,7 +65,7 @@ def plot_images(results, title, query=None, query_type="text"):
             plt.subplot(1, n_results + 1, i + 2)
             img = Image.open(img_path)
             plt.imshow(img)
-            plt.title(f"{os.path.basename(img_path)}\nscore: {score:.2f}", fontsize=10, pad=10)
+            plt.title(f"Score: {score:.2f}", fontsize=10, pad=10)
             plt.axis('off')
         plt.suptitle(title, fontsize=14)
         plt.tight_layout()
@@ -76,7 +76,7 @@ def plot_images(results, title, query=None, query_type="text"):
             plt.subplot(1, n_results, i + 1)
             img = Image.open(img_path)
             plt.imshow(img)
-            plt.title(f"{os.path.basename(img_path)}\nscore: {score:.2f}", fontsize=10, pad=10)
+            plt.title(f"Score: {score:.2f}", fontsize=10, pad=10)
             plt.axis('off')
         plt.suptitle(title, fontsize=14)
         # Subtitle (query)
@@ -192,8 +192,8 @@ if __name__ == "__main__":
             emb_dir = f"data/embeddings/{model_kind}_{dataset_type}_clip-ViT-B-32-multilingual-v1"
             img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{dataset_type}.npy")
             text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{dataset_type}.npy")
-            img_model_path = f"output/{model_kind}_{dataset_type}_clip/best_model/vision_encoder"
-            txt_model_path = f"output/{model_kind}_{dataset_type}_clip/best_model/text_encoder"
+            img_model_path = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip/epoch_20/vision_encoder"
+            txt_model_path = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip/epoch_20/text_encoder"
             image_encoder = ProjectedCLIPVision(img_model_path, device)
             text_encoder = ProjectedDistilBert(txt_model_path, device)
 
@@ -203,12 +203,11 @@ if __name__ == "__main__":
             print(f"Skipping {model_kind}, {dataset_type} due to missing embeddings.")
             continue
         try:
-            test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "train")
+            test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
         except Exception as e:
             print(f"Failed to get split embeddings for {model_kind}, {dataset_type}: {e}")
             continue
-
-
+        
         for idx in test_ids:
             if idx >= len(test_df):
                 continue  # skip if index out of range
@@ -230,7 +229,7 @@ if __name__ == "__main__":
             # Image-to-Image Retrieval
             best_match_image = text2image_results[0][0]
             image2image_results = retrieve_images_by_image(best_match_image, image_encoder, test_img_emb, test_df, top_k=5)
-            image2image= plot_images(results, "Image-to-Image Retrieval (M-CLIP)", query=best_match_image, query_type="image")
+            image2image= plot_images(image2image_results, "Image-to-Image Retrieval (M-CLIP)", query=best_match_image, query_type="image")
             save_retrieval_plots(image2image, out_dir, model_kind, dataset_type, "img2img")
 
 

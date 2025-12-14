@@ -116,7 +116,7 @@ if __name__ == "__main__":
         try:
             image_embeddings = load_embeddings(img_emb_path_all)
             text_embeddings = load_embeddings(text_emb_path_all)
-            test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "train")
+            test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
             results_df = compute_recall_precision_table(test_txt_emb, test_img_emb, k_list=[1, 5, 10, 50])
             results_df.to_csv(f"retrieval_results_{model_kind}_{dataset_type}.csv", index=False)
 

@@ -54,9 +54,9 @@ def get_default_paths(model_kind, dataset_type, device):
         img_emb_path = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
         txt_emb_path = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
     else:
-        base = f"output/{model_kind}_{dataset_type}_clip"
-        img_model_path = os.path.join(base, "best_model", "vision_encoder")
-        txt_model_path = os.path.join(base, "best_model", "text_encoder")
+        base = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip"
+        img_model_path = os.path.join(base, "epoch_20", "vision_encoder")
+        txt_model_path = os.path.join(base, "epoch_20", "text_encoder")
         img_encoder = ProjectedCLIPVision(img_model_path, device)
         txt_encoder = ProjectedDistilBert(txt_model_path, device)
         emb_dir = f"data/embeddings/{model_kind}_{dataset_type}_clip-ViT-B-32-multilingual-v1"
@@ -76,7 +76,6 @@ if __name__ == "__main__":
     
     CSV_PATH = args.csv_path
     df = pd.read_csv(CSV_PATH)
-    df = df[:100]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if args.model_kind == "all":
@@ -89,6 +88,7 @@ if __name__ == "__main__":
         for model_kind, dataset_type in configs:
             try:
                 img_encoder, txt_encoder, img_emb_path, txt_emb_path = get_default_paths(model_kind, dataset_type, device)
+                
                 compute_embeddings(img_encoder, txt_encoder, df, img_emb_path, txt_emb_path)
             except Exception as e:
                 print(f"Failed for {model_kind}, {dataset_type}: {e}")

@@ -52,7 +52,7 @@ class ProjectedCLIPVision(nn.Module):
     def __init__(self, model_path, device):
         super().__init__()
         self.proj_weights_path = os.path.join(model_path, "visual_projection.bin")
-        self.config_path = os.path.join(model_path, "config.json")
+        self.config_path = os.path.join(model_path, "proj_config.json")
         self.proj_weights = load_projection_weights(self.proj_weights_path, device)
         self.proj_cfg = load_json_config(self.config_path).get("visual_projection", None)
         self.model = CLIPVisionModel.from_pretrained(model_path).to(device)
