@@ -3,7 +3,7 @@ import subprocess
 
 # List all model/dataset combinations
 configs = [
-    ("disentangled", "default"),
+    #("disentangled", "default"),
     ("disentangled", "grouped")
     # ("finetuned", "default"),
     # ("finetuned", "grouped")

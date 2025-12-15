@@ -75,7 +75,15 @@ def grouped_disentangled_loss(image_embeds, text_embeds, group_indices, temperat
 
     text_subjective_norm = nn.functional.normalize(text_subjective, dim=-1)
     image_subjective = image_embeds_norm[:, D_c:]
-    loss_subjective_img = (image_subjective * text_subjective_norm).sum(dim=1).abs().mean()
+    # Example: expand image_subjective to match text_subjective_norm
+    expanded_image_subjective = []
+    for i, indices in enumerate(group_indices):
+        # Repeat the i-th image embedding for each associated caption
+        expanded_image_subjective.extend([image_subjective[i]] * len(indices))
+    expanded_image_subjective = torch.stack(expanded_image_subjective, dim=0)  # shape [N, D_s]
+
+    # Now you can safely compute the penalty
+    loss_subjective_img = (expanded_image_subjective * text_subjective_norm).sum(dim=1).abs().mean()  
     loss_subjective_content = (text_content_norm * text_subjective_norm).sum(dim=1).abs().mean()
 
     loss = alpha * loss_content_img + beta * loss_subjective_img + gamma * loss_subjective_content
