@@ -182,20 +182,25 @@ if __name__ == "__main__":
     for model_kind, dataset_type in configs:
         print(f"\nEvaluating model: {model_kind}, {dataset_type}")
         # Set up embedding directory and model loading as in your script
-        if model_kind == "baseline":
-            emb_dir = f"data/embeddings/baseline_clip-ViT-B-32-multilingual-v1"
-            img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
-            text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
-            image_encoder = PretrainedCLIPVision("pretrained_models/sentence-transformers--clip-ViT-B-32", device)
-            text_encoder = PretrainedDistilBert("pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1", device)
-        else:
-            emb_dir = f"data/embeddings/{model_kind}_{dataset_type}_clip-ViT-B-32-multilingual-v1"
-            img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{dataset_type}.npy")
-            text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{dataset_type}.npy")
-            img_model_path = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip/epoch_20/vision_encoder"
-            txt_model_path = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip/epoch_20/text_encoder"
-            image_encoder = ProjectedCLIPVision(img_model_path, device)
-            text_encoder = ProjectedDistilBert(txt_model_path, device)
+        try: 
+            if model_kind == "baseline":
+
+                emb_dir = f"data/embeddings/baseline_clip-ViT-B-32-multilingual-v1"
+                img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
+                text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
+                image_encoder = PretrainedCLIPVision("pretrained_models/sentence-transformers--clip-ViT-B-32", device)
+                text_encoder = PretrainedDistilBert("pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1", device)
+            else:
+                emb_dir = f"data/embeddings/{model_kind}_{dataset_type}_clip-ViT-B-32-multilingual-v1"
+                img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{dataset_type}.npy")
+                text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{dataset_type}.npy")
+                img_model_path = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip/epoch_20/vision_encoder"
+                txt_model_path = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip/epoch_20/text_encoder"
+                image_encoder = ProjectedCLIPVision(img_model_path, device)
+                text_encoder = ProjectedDistilBert(txt_model_path, device)
+        except Exception as e:
+            print(f"Failed to load models for {model_kind}, {dataset_type}: {e}")
+            continue
 
         image_embeddings = load_embeddings(img_emb_path_all)
         text_embeddings = load_embeddings(text_emb_path_all)

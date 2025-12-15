@@ -11,3 +11,4 @@ umap-learn>=0.5
 Pillow>=8.0
 fiftyone>=0.21
 tensorboard>=2.6
+bokeh>=2.4

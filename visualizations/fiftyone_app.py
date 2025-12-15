@@ -6,18 +6,21 @@ from tqdm import tqdm
 import numpy as np
 import os 
 from compute_embeddings import load_embeddings
-from visualizations.german_retrieval import get_split_embeddings
+from visualizations.retrieval_visualization import get_split_embeddings
 
 model_kind = "disentangled"  # "pretrained" or "finetuned", "disentangled"
-emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
+data_type = "default" # "default" or "grouped"
+emb_dir = os.path.join("data", "embeddings", f"{model_kind}_{data_type}_clip-ViT-B-32-multilingual-v1")
 
-CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
+
+CSV_PATH = r"data/feidegger_metadata.csv"
 df = pd.read_csv(CSV_PATH)
 
 
-img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
-text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
+img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{data_type}.npy")
+text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{data_type}.npy")
 
+print(img_emb_path_all)
 image_embeddings = load_embeddings(img_emb_path_all)
 text_embeddings = load_embeddings(text_emb_path_all)
 # alternatevly, get a subset of a specific split
@@ -38,7 +41,8 @@ for idx, row in tqdm(test_df.iterrows(), total=len(test_df), desc="Loading embed
         filepath=img_path,
         text=text,
         text_embedding=test_txt_emb[idx]['embedding'].tolist(),
-        image_embedding=test_img_emb[idx]['embedding'].tolist()
+        image_embedding=test_img_emb[idx]['embedding'].tolist(),
+        item_idx=row["item_idx"]
     )
     samples.append(sample) 
 
