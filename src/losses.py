@@ -14,21 +14,25 @@ def contrastive_loss(image_embeds, text_embeds, group_indices=None,  temperature
 
 def grouped_contrastive_loss(image_embeds, text_embeds, group_indices, temperature=0.07):
     """
-    image_embeds: [B, D] (B = batch size, one image per batch)
-    text_embeds: [N, D] (N = total number of captions in batch)
-    group_indices: list of lists, each sublist contains indices of captions for each image
+    Multi-positive contrastive loss for grouped data.
+    For each image, all its captions are positives; all others are negatives.
     """
     image_embeds = nn.functional.normalize(image_embeds, dim=-1)
     text_embeds = nn.functional.normalize(text_embeds, dim=-1)
     logits = image_embeds @ text_embeds.t() / temperature  # [B, N]
 
-    # Build targets: for each image, all its captions are positives
-    targets = torch.zeros_like(logits)
-    for i, indices in enumerate(group_indices):
-        targets[i, indices] = 1  # positives
-
-    # Use BCEWithLogitsLoss for multi-label
-    loss = nn.BCEWithLogitsLoss()(logits, targets)
+    # For each image, mask out the positives (all captions in group_indices[i])
+    losses = []
+    for i, pos_indices in enumerate(group_indices):
+        # Numerator: sum over all positives (exp(similarity))
+        pos_logits = logits[i, pos_indices]
+        numerator = torch.exp(pos_logits).sum()
+        # Denominator: sum over all captions
+        denominator = torch.exp(logits[i, :]).sum()
+        # InfoNCE loss for this image (multi-positive)
+        loss_i = -torch.log(numerator / denominator)
+        losses.append(loss_i)
+    loss = torch.stack(losses).mean()
     return loss
 
 
@@ -56,7 +60,14 @@ def disentangled_loss(image_embeds, text_embeds, group_indices, temperature=0.07
 
 
 
-def grouped_disentangled_loss(image_embeds, text_embeds, group_indices, temperature=0.07, alpha=1.0, beta=1.0, gamma=0.1):
+def grouped_disentangled_loss(
+    image_embeds, text_embeds, group_indices, temperature=0.07, alpha=1.0, beta=1.0, gamma=0.1
+):
+    """
+    Grouped disentangled loss:
+    - Multi-positive contrastive loss for content alignment (using group_indices)
+    - Orthogonality penalties for disentanglement, expanded to match groupings
+    """
     D = text_embeds.shape[1]
     D_c = D // 2  # first half: content, second half: subjective
     text_content = text_embeds[:, :D_c]
@@ -66,24 +77,27 @@ def grouped_disentangled_loss(image_embeds, text_embeds, group_indices, temperat
     text_content_norm = nn.functional.normalize(text_content, dim=-1)
     image_content = image_embeds_norm[:, :D_c]
 
-    # Multi-label contrastive loss (grouped)
+    # Multi-positive contrastive loss (InfoNCE with multiple positives)
     logits = image_content @ text_content_norm.t() / temperature  # [B, N]
-    targets = torch.zeros_like(logits)
-    for i, indices in enumerate(group_indices):
-        targets[i, indices] = 1
-    loss_content_img = nn.BCEWithLogitsLoss()(logits, targets)
+    losses = []
+    for i, pos_indices in enumerate(group_indices):
+        pos_logits = logits[i, pos_indices]
+        numerator = torch.exp(pos_logits).sum()
+        denominator = torch.exp(logits[i, :]).sum()
+        loss_i = -torch.log(numerator / denominator)
+        losses.append(loss_i)
+    loss_content_img = torch.stack(losses).mean()
 
+    # Subjective disentanglement: expand image_subjective to match each caption
     text_subjective_norm = nn.functional.normalize(text_subjective, dim=-1)
     image_subjective = image_embeds_norm[:, D_c:]
-    # Example: expand image_subjective to match text_subjective_norm
     expanded_image_subjective = []
     for i, indices in enumerate(group_indices):
-        # Repeat the i-th image embedding for each associated caption
         expanded_image_subjective.extend([image_subjective[i]] * len(indices))
     expanded_image_subjective = torch.stack(expanded_image_subjective, dim=0)  # shape [N, D_s]
 
-    # Now you can safely compute the penalty
-    loss_subjective_img = (expanded_image_subjective * text_subjective_norm).sum(dim=1).abs().mean()  
+    # Subjective penalty (orthogonality)
+    loss_subjective_img = (expanded_image_subjective * text_subjective_norm).sum(dim=1).abs().mean()
     loss_subjective_content = (text_content_norm * text_subjective_norm).sum(dim=1).abs().mean()
 
     loss = alpha * loss_content_img + beta * loss_subjective_img + gamma * loss_subjective_content

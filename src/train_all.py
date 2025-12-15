@@ -4,9 +4,9 @@ import subprocess
 # List all model/dataset combinations
 configs = [
     #("disentangled", "default"),
-    ("disentangled", "grouped")
+    ("disentangled", "grouped"),
     # ("finetuned", "default"),
-    # ("finetuned", "grouped")
+    ("finetuned", "grouped")
 ]
 
 for model_kind, dataset_type in configs:
