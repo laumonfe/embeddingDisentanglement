@@ -107,14 +107,14 @@ def grouped_disentangled_loss(
 
 
 
-def covariance_disentanglement_loss(content, subjective):
-    """
-    Penalizes covariance between content and subjective features to encourage disentanglement.
-    """
-    # Center the features
-    content_centered = content - content.mean(dim=0, keepdim=True)
-    subjective_centered = subjective - subjective.mean(dim=0, keepdim=True)
-    # Compute covariance matrix between content and subjective
-    cov = torch.matmul(content_centered.T, subjective_centered) / (content.shape[0] - 1)
-    # Penalize the squared Frobenius norm (sum of squares of all elements)
-    return (cov ** 2).mean()
+# def covariance_disentanglement_loss(content, subjective):
+#     """
+#     Penalizes covariance between content and subjective features to encourage disentanglement.
+#     """
+#     # Center the features
+#     content_centered = content - content.mean(dim=0, keepdim=True)
+#     subjective_centered = subjective - subjective.mean(dim=0, keepdim=True)
+#     # Compute covariance matrix between content and subjective
+#     cov = torch.matmul(content_centered.T, subjective_centered) / (content.shape[0] - 1)
+#     # Penalize the squared Frobenius norm (sum of squares of all elements)
+#     return (cov ** 2).mean()

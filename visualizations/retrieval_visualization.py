@@ -166,7 +166,6 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    test_ids = [5, 12, 23, 42, 55, 67, 78, 88, 101, 123]
 
     # All model configs to test
     configs = [
@@ -213,9 +212,10 @@ if __name__ == "__main__":
             print(f"Failed to get split embeddings for {model_kind}, {dataset_type}: {e}")
             continue
         
+        np.random.seed(42)
+        test_ids = random_ints = np.random.choice(np.arange(0, len(test_df)), size=10, replace=False)
+
         for idx in test_ids:
-            if idx >= len(test_df):
-                continue  # skip if index out of range
 
             query_text = test_df.iloc[idx]['text']
             query_img_path = test_df.iloc[idx]['image_path']
@@ -238,16 +238,16 @@ if __name__ == "__main__":
             save_retrieval_plots(image2image, out_dir, model_kind, dataset_type, "img2img")
 
 
-            # i2i_dir = f"retrieval_results/{model_kind}_{dataset_type}/query_{idx}/image_to_image"
-            # save_retrieved_images(i2i_results, i2i_dir, "i2i")
+        # i2i_dir = f"retrieval_results/{model_kind}_{dataset_type}/query_{idx}/image_to_image"
+        # save_retrieved_images(i2i_results, i2i_dir, "i2i")
 
-            # # Image-to-Image Retrieval
-            # i2i_results = retrieve_images_by_image(query_img_path, image_encoder, test_img_emb, test_df, top_k=5)
-            # i2i_dir = f"retrieval_results/{model_kind}_{dataset_type}/query_{idx}/image_to_image"
-            # save_retrieved_images(i2i_results, i2i_dir, "i2i")
+        # # Image-to-Image Retrieval
+        # i2i_results = retrieve_images_by_image(query_img_path, image_encoder, test_img_emb, test_df, top_k=5)
+        # i2i_dir = f"retrieval_results/{model_kind}_{dataset_type}/query_{idx}/image_to_image"
+        # save_retrieved_images(i2i_results, i2i_dir, "i2i")
 
-            # # Optionally, also save the query image for reference
-            # try:
-            #     shutil.copy(query_img_path, f"retrieval_results/{model_kind}_{dataset_type}/query_{idx}/query_image.jpg")
-            # except Exception as e:
-            #     print(f"Could not copy query image {query_img_path}: {e}")
+        # # Optionally, also save the query image for reference
+        # try:
+        #     shutil.copy(query_img_path, f"retrieval_results/{model_kind}_{dataset_type}/query_{idx}/query_image.jpg")
+        # except Exception as e:
+        #     print(f"Could not copy query image {query_img_path}: {e}")
