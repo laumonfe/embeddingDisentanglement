@@ -194,32 +194,4 @@ class FinetuneCLIP(nn.Module):
             json.dump(combined_config, f, indent=2)
 
 
-if __name__ == "__main__":
 
-    from sentence_transformers import util
-
-    # Paths to pretrained models
-    pretrained_img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
-    pretrained_text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
-
-
-    # Paths to finetuned models
-    # finetuned_text_model_path = r"output/finetuned_baseline/best_model/text_encoder"
-    # finetuned_img_model_path = r"output/finetuned_baseline/best_model/vision_encoder"
-    finetuned_text_model_path = r"output/disentangled_clip_loss_test/best_model/text_encoder"
-    finetuned_img_model_path = r"output/disentangled_clip_loss_test/best_model/vision_encoder"
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    baseline_image_encoder = PretrainedCLIPVision(pretrained_img_model_path, device)
-    baseline_text_encoder = PretrainedDistilBert(pretrained_text_model_path, device)
-    
-    finetuned_image_encoder = ProjectedCLIPVision(finetuned_img_model_path, device)
-    finetuned_text_encoder = ProjectedDistilBert(finetuned_text_model_path, device)
-
-    query = "A dog playing with a ball."
-    baseline_emb = baseline_text_encoder.encode(query)
-    finetuned_emb = finetuned_text_encoder.encode(query)    
-
-    sims = util.cos_sim(torch.tensor(baseline_emb), torch.tensor(finetuned_emb))[0]
-    print("Cosine similarity between baseline and finetuned text embeddings:", sims.item())

@@ -54,39 +54,6 @@ if __name__ == "__main__":
     from compute_embeddings import load_embeddings
     from visualizations.retrieval_visualization import get_split_embeddings
 
-    # parser = argparse.ArgumentParser(description="Compute embeddings for FEIDEGGER dataset.")
-    # parser.add_argument(
-    #     "--model_kind",
-    #     choices=["pretrained", "finetuned", "disentangled"],
-    #     default="disentangled",
-    #     help="Which model to use: pretrained (baseline), finetuned (on FEIDEGGER), or disentangled (on FEIDEGGER)."
-    # )
-    # parser.add_argument(
-    #     "--csv_path",
-    #     type=str,
-    #     default="data/embeddings/feidegger_visualization_data.csv",
-    #     help="Path to the CSV file containing image paths and text descriptions."
-    # )
-
-    # args = parser.parse_args()
-    # model_kind = args.model_kind
-    # CSV_PATH = args.csv_path
-
-    # emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
-    # df = pd.read_csv(CSV_PATH)
-
-    # img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
-    # text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
-
-    # image_embeddings = load_embeddings(img_emb_path_all)
-    # text_embeddings = load_embeddings(text_emb_path_all)
-
-    # test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
-
-
-    # results_df = compute_recall_precision_table(test_txt_emb, test_img_emb, k_list=[1, 5, 10, 50])
-    # results_df.to_csv(f"retrieval_results_{model_kind}.csv", index=False)
-
     parser = argparse.ArgumentParser(description="Aggregate retrieval metrics for all models.")
     parser.add_argument(
         "--csv_path",
