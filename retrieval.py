@@ -42,24 +42,105 @@ def compute_recall_precision_table(text_embeddings, image_embeddings, k_list=[1,
     print(f"Mean GT Rank: {df_results['gt_rank'][df_results['gt_rank']!=-1].mean():.2f}")
     return df_results
 
+def get_emb_dir(model_kind, dataset_type=None):
+    if model_kind == "baseline":
+        return f"data/embeddings/baseline_clip-ViT-B-32-multilingual-v1"
+    else:
+        return f"data/embeddings/{model_kind}_{dataset_type}_clip-ViT-B-32-multilingual-v1"
+
 if __name__ == "__main__":
     import os
+    import argparse
     from compute_embeddings import load_embeddings
-    from german_retrieval import get_split_embeddings
+    from visualizations.retrieval_visualization import get_split_embeddings
 
-    model_kind = "disentangled"  # or "pretrained", disentangled , baseline 
-    emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
-    CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
+    # parser = argparse.ArgumentParser(description="Compute embeddings for FEIDEGGER dataset.")
+    # parser.add_argument(
+    #     "--model_kind",
+    #     choices=["pretrained", "finetuned", "disentangled"],
+    #     default="disentangled",
+    #     help="Which model to use: pretrained (baseline), finetuned (on FEIDEGGER), or disentangled (on FEIDEGGER)."
+    # )
+    # parser.add_argument(
+    #     "--csv_path",
+    #     type=str,
+    #     default="data/embeddings/feidegger_visualization_data.csv",
+    #     help="Path to the CSV file containing image paths and text descriptions."
+    # )
+
+    # args = parser.parse_args()
+    # model_kind = args.model_kind
+    # CSV_PATH = args.csv_path
+
+    # emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
+    # df = pd.read_csv(CSV_PATH)
+
+    # img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
+    # text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
+
+    # image_embeddings = load_embeddings(img_emb_path_all)
+    # text_embeddings = load_embeddings(text_emb_path_all)
+
+    # test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
+
+
+    # results_df = compute_recall_precision_table(test_txt_emb, test_img_emb, k_list=[1, 5, 10, 50])
+    # results_df.to_csv(f"retrieval_results_{model_kind}.csv", index=False)
+
+    parser = argparse.ArgumentParser(description="Aggregate retrieval metrics for all models.")
+    parser.add_argument(
+        "--csv_path",
+        type=str,
+        default="data/feidegger_metadata.csv",
+        help="Path to the CSV file containing image paths and text descriptions."
+    )
+    args = parser.parse_args()
+    CSV_PATH = args.csv_path
     df = pd.read_csv(CSV_PATH)
 
-    img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
-    text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
+    configs = [
+        ("disentangled", "default"),
+        ("disentangled", "grouped"),
+        ("finetuned", "default"),
+        ("finetuned", "grouped"),
+        ("baseline", None)
+    ]
 
-    image_embeddings = load_embeddings(img_emb_path_all)
-    text_embeddings = load_embeddings(text_emb_path_all)
+    summary_rows = []
+    for model_kind, dataset_type in configs:
+        print(f"\nEvaluating: {model_kind}, {dataset_type}")
+        emb_dir = get_emb_dir(model_kind, dataset_type)
+        img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{dataset_type}.npy" if dataset_type else f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
+        text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{dataset_type}.npy" if dataset_type else f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
 
-    test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
+        try:
+            image_embeddings = load_embeddings(img_emb_path_all)
+            text_embeddings = load_embeddings(text_emb_path_all)
+            test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
+            results_df = compute_recall_precision_table(test_txt_emb, test_img_emb, k_list=[1, 5, 10, 50])
+            results_df.to_csv(f"retrieval_results_{model_kind}_{dataset_type}.csv", index=False)
 
+            # Aggregate mean metrics
+            row = {
+                "model_kind": model_kind,
+                "dataset_type": dataset_type if dataset_type else "default",
+                "recall@1": results_df["recall@1"].mean(),
+                "recall@5": results_df["recall@5"].mean(),
+                "recall@10": results_df["recall@10"].mean(),
+                "recall@50": results_df["recall@50"].mean(),
+                "precision@1": results_df["precision@1"].mean(),
+                "precision@5": results_df["precision@5"].mean(),
+                "precision@10": results_df["precision@10"].mean(),
+                "precision@50": results_df["precision@50"].mean(),
+                "mean_gt_rank": results_df["gt_rank"][results_df["gt_rank"] != -1].mean()
+            }
+            summary_rows.append(row)
+        except Exception as e:
+            print(f"Failed for {model_kind}, {dataset_type}: {e}")
+            continue
 
-    results_df = compute_recall_precision_table(test_txt_emb, test_img_emb, k_list=[1, 5, 10, 50])
-    results_df.to_csv(f"retrieval_results_{model_kind}.csv", index=False)
+    # Create and save summary table
+    summary_df = pd.DataFrame(summary_rows)
+    summary_df.to_csv("retrieval_summary.csv", index=False)
+    print("\nSummary table saved as retrieval_summary.csv")
+    print(summary_df)

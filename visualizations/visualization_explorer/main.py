@@ -3,12 +3,21 @@
 import pandas as pd
 import numpy as np
 import umap
-from sentence_transformers import SentenceTransformer
 from bokeh.plotting import figure, show
-from bokeh.models import ColumnDataSource, HoverTool, CustomJS, TapTool, Button, Div, LabelSet
+from bokeh.models import ColumnDataSource, HoverTool, CustomJS, TapTool, Button, Div, LabelSet, TextInput
 from bokeh.layouts import column, row
 import os
 from bokeh.io import curdoc
+
+def load_embeddings(emb_save_path):
+    if os.path.exists(emb_save_path):
+        print(f"Loading embeddings from {emb_save_path}")
+        embeddings = np.load(emb_save_path, allow_pickle=True)
+        print("Contains:", len(embeddings) , "embeddings.")
+        return embeddings
+    else:
+        print(f"Embeddings file {emb_save_path} not found.")
+        return None
 
 def load_data(csv_path):
     df = pd.read_csv(csv_path)
@@ -16,18 +25,25 @@ def load_data(csv_path):
         df['item_idx'] = df.index
     return df
 
-def compute_embeddings(df, embeddings_path='data/feidegger_embeddings_CLIP.npy', model_name ='sentence-transformers/clip-ViT-B-32-multilingual-v1'):#model_name='distiluse-base-multilingual-cased-v2'):
-    if os.path.exists(embeddings_path):
-        print(f"Loading embeddings from {embeddings_path} ...")
-        embeddings = np.load(embeddings_path)
-    else:
-        print("Calculating embeddings ...")
-        model = SentenceTransformer(model_name)
-        embeddings = model.encode(df['text'].tolist(), show_progress_bar=True)
-        os.makedirs(os.path.dirname(embeddings_path), exist_ok=True)
-        np.save(embeddings_path, embeddings)
-        print(f"Saved embeddings to {embeddings_path}")
-    return embeddings
+def create_id_selector(source):
+    id_input = TextInput(title="Select item_idx:", placeholder="Enter item_idx...")
+    id_input.js_on_change("value", CustomJS(args=dict(source=source), code="""
+        const val = cb_obj.value;
+        if (!val) {
+            source.selected.indices = [];
+            source.change.emit();
+            return;
+        }
+        const indices = [];
+        for (let i = 0; i < source.data['item_idx'].length; i++) {
+            if (source.data['item_idx'][i].toString() === val) {
+                indices.push(i);
+            }
+        }
+        source.selected.indices = indices;
+        source.change.emit();
+    """))
+    return id_input
 
 def apply_umap(embeddings, n_neighbors=15, min_dist=0.1):
     umap_model = umap.UMAP(n_neighbors=n_neighbors, min_dist=min_dist, metric='cosine', random_state=42)
@@ -48,7 +64,13 @@ def create_interactive_plot(umap_2d, df):
     
     source = ColumnDataSource(data=source_dict)
     
-    hover = HoverTool(tooltips=[], mode='mouse') 
+    id_input = create_id_selector(source)
+    
+    hover = HoverTool(tooltips=[
+        ("item_idx", "@item_idx"),
+        ("text", "@text"),
+        ("image_path", "@image_path"),
+    ], mode='mouse') 
     
     image_div = Div(text="Click a point to see the image for the selected embedding.", width=400, height=340)
     texts_div = Div(text="<b>All texts for selected item_idx will appear here.</b>", width=400, height=340)
@@ -111,7 +133,6 @@ def create_interactive_plot(umap_2d, df):
         image_div.text = image_html;
     """)
 
-    
     taptool = TapTool(callback=callback)
     
     p = figure(
@@ -143,12 +164,31 @@ def create_interactive_plot(umap_2d, df):
         texts_div.text = "<b>All texts for selected item_idx will appear here.</b>";
     """))
     
-    layout = column(p, clear_btn, row(image_div, texts_div))
+    layout = column(id_input, p, clear_btn, row(image_div, texts_div))
     return layout
 
-csv_path = "visualization_explorer/feidegger_visualization_data.csv"
+
+
+csv_path = "data/feidegger_metadata.csv"
 df = load_data(csv_path)
-embeddings = compute_embeddings(df)
-umap_2d = apply_umap(embeddings)
-layout = create_interactive_plot(umap_2d, df)
+
+model_kind = "disentangled"  # "pretrained" or "finetuned", "disentangled"
+data_type = "default" # "default" or "grouped"
+emb_dir = os.path.join("data", "embeddings", f"{model_kind}_{data_type}_clip-ViT-B-32-multilingual-v1")
+from visualizations.retrieval_visualization import get_split_embeddings
+
+# embeddings = load#compute_embeddings(df)
+img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{data_type}.npy")
+text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{data_type}.npy")
+
+print(img_emb_path_all)
+image_embeddings = load_embeddings(img_emb_path_all)
+text_embeddings = load_embeddings(text_emb_path_all)
+# alternatevly, get a subset of a specific split
+test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
+test_txt_emb_vectors = np.stack([e['embedding'] for e in test_txt_emb])
+
+
+umap_2d = apply_umap(test_txt_emb_vectors)
+layout = create_interactive_plot(umap_2d, test_df)
 curdoc().add_root(layout)

@@ -42,38 +42,61 @@ def compute_embeddings(image_encoder, text_encoder, df, img_emb_save_path, txt_e
         np.save(path, np.array(embeddings, dtype=object))
     print(f"Saved embeddings to {img_emb_save_path} and {txt_emb_save_path}")
 
+
+
+def get_default_paths(model_kind, dataset_type, device):
+    if model_kind == "baseline":
+        img_model_path = "pretrained_models/sentence-transformers--clip-ViT-B-32"
+        txt_model_path = "pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
+        img_encoder = PretrainedCLIPVision(img_model_path, device)
+        txt_encoder = PretrainedDistilBert(txt_model_path, device)
+        emb_dir = f"data/embeddings/{model_kind}_clip-ViT-B-32-multilingual-v1"
+        img_emb_path = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
+        txt_emb_path = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
+    else:
+        base = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip"
+        img_model_path = os.path.join(base, "epoch_20", "vision_encoder")
+        txt_model_path = os.path.join(base, "epoch_20", "text_encoder")
+        img_encoder = ProjectedCLIPVision(img_model_path, device)
+        txt_encoder = ProjectedDistilBert(txt_model_path, device)
+        emb_dir = f"data/embeddings/{model_kind}_{dataset_type}_clip-ViT-B-32-multilingual-v1"
+        img_emb_path = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{dataset_type}.npy")
+        txt_emb_path = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{dataset_type}.npy")
+    return img_encoder, txt_encoder, img_emb_path, txt_emb_path
 if __name__ == "__main__":
     
-    model_kind = "disentangled"  # "pretrained" or "finetuned"
-    emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
-    
-    CSV_PATH = r"data\embeddings\feidegger_visualization_data.csv"
-    df = pd.read_csv(CSV_PATH)
+    import argparse
 
+    parser = argparse.ArgumentParser(description="Compute embeddings for FEIDEGGER dataset.")
+    parser.add_argument("--model_kind",choices=["baseline", "finetuned", "disentangled", "all"],default="all",help="Which model to use: baseline, finetuned or disentangled ")
+    parser.add_argument("--dataset_type", type=str, choices=["default", "grouped"], default="default", help="Type of dataset grouping: default or grouped")
+    parser.add_argument("--csv_path",type=str,default="data/feidegger_metadata.csv",help="Path to the CSV file containing image paths and text descriptions.")
+    args = parser.parse_args()
+
+    
+    CSV_PATH = args.csv_path
+    df = pd.read_csv(CSV_PATH)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
-    txt_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
+    if args.model_kind == "all":
+        configs = [("disentangled", "default"),
+                    ("disentangled", "grouped"),
+                    ("finetuned", "default"),
+                    ("finetuned", "grouped"),
+                    ("baseline", None)]
+            
+        for model_kind, dataset_type in configs:
+            try:
+                img_encoder, txt_encoder, img_emb_path, txt_emb_path = get_default_paths(model_kind, dataset_type, device)
+                
+                compute_embeddings(img_encoder, txt_encoder, df, img_emb_path, txt_emb_path)
+            except Exception as e:
+                print(f"Failed for {model_kind}, {dataset_type}: {e}")
+                continue
+                        
+    else: 
 
-    if model_kind == "pretrained":
-        # Paths to pretrained models
-        pretrained_img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
-        pretrained_text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
-        image_encoder = PretrainedCLIPVision(pretrained_img_model_path, device)
-        text_encoder = PretrainedDistilBert(pretrained_text_model_path, device)
+        print(f"Processing: {args.model_kind}, {args.dataset_type}")
+        img_encoder, txt_encoder, img_emb_path, txt_emb_path = get_default_paths(args.model_kind, args.dataset_type, device)
+        compute_embeddings(img_encoder, txt_encoder, df, img_emb_path, txt_emb_path)
 
-    if model_kind == "finetuned":
-        # Paths to finetuned models
-        finetuned_text_model_path = r"output/finetuned_baseline/best_model/text_encoder"
-        finetuned_img_model_path = r"output/finetuned_baseline/best_model/vision_encoder"
-        image_encoder = ProjectedCLIPVision(finetuned_img_model_path, device)
-        text_encoder = ProjectedDistilBert(finetuned_text_model_path, device)
-
-    if model_kind == "disentangled":
-        # Paths to disentangled finetuned models
-        disentangled_text_model_path = r"output/disentangled_clip_loss2/best_model_x/text_encoder"
-        disentangled_img_model_path = r"output/disentangled_clip_loss2/best_model_x/vision_encoder"
-        image_encoder = ProjectedCLIPVision(disentangled_img_model_path, device)
-        text_encoder = ProjectedDistilBert(disentangled_text_model_path, device)
-
-    compute_embeddings(image_encoder, text_encoder, df, img_emb_path_all, txt_emb_path_all)

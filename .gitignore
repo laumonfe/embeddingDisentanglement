@@ -1,14 +1,18 @@
 # FEIDEGGER Project .gitignore
 # Ignore output folder for finetuned models and results
 output/
+evaluation/
 pretrained_models/*
-!pretrained_models/README
+!pretrained_models/README.md
 !pretrained_models/setup_pretrained_models.py
-# Exclude the mamba_dataset folder and all its contents
-mamba_dataset/
-mamba_output/
+
+dataset/
 checkpoints/
-data/
+!data/feidegger_crawler.py
+data/embeddings/
+data/intra_class_metrics/
+data/feidegger_metadata.csv
+data/retrieval_results/
 
 # Python bytecode
 __pycache__/
@@ -44,19 +48,8 @@ Thumbs.db
 # Downloaded images folder
 images/
 
-# HDF5 files (typically large)
-*.h5
-
 # Logs
 *.log
 
 # Temporary files
 *.tmp
-
-# Exported CSV files
-feidegger_dataset.csv
-split7_sample.csv
-
-# Generated plots
-split_distribution.png
-word_frequencies.png
