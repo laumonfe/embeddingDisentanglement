@@ -9,6 +9,7 @@ import matplotlib.patches as patches
 from sentence_transformers import  util
 from compute_embeddings import load_embeddings
 import json
+import textwrap
 from src.models import PretrainedCLIPVision, PretrainedDistilBert, ProjectedCLIPVision, ProjectedDistilBert
 
 
@@ -55,10 +56,10 @@ def plot_images(results, title, query=None, query_type="text"):
         # Add red border
         rect = patches.Rectangle(
             (0, 0), img.size[0], img.size[1],
-            linewidth=4, edgecolor='red', facecolor='none'
+            linewidth=4, edgecolor='maroon', facecolor='none'
         )
         ax.add_patch(rect)
-        plt.title("Query Image", fontsize=10, pad=10, color='red', weight="bold")
+        plt.title("Query Image", fontsize=10, pad=10, color='maroon', weight="bold")
         plt.axis('off')
         # Plot the results
         for i, (img_path, score) in enumerate(results):
@@ -67,7 +68,7 @@ def plot_images(results, title, query=None, query_type="text"):
             plt.imshow(img)
             plt.title(f"Score: {score:.2f}", fontsize=10, pad=10)
             plt.axis('off')
-        plt.suptitle(title, fontsize=14)
+        #plt.suptitle(title, fontsize=14)
         plt.tight_layout()
         return fig
     else:
@@ -78,10 +79,13 @@ def plot_images(results, title, query=None, query_type="text"):
             plt.imshow(img)
             plt.title(f"Score: {score:.2f}", fontsize=10, pad=10)
             plt.axis('off')
-        plt.suptitle(title, fontsize=14)
+        #plt.suptitle(title, fontsize=14)
         # Subtitle (query)
-        if query is not None:
-            fig.text(0.5, 0.91, f"Query: {query}", ha='center', fontsize=10, color='red',weight="bold")
+        # if query is not None:
+        #     # Estimate max chars per line based on number of images
+        #     max_chars = max(60, int(30 * n_results))
+        #     wrapped_query = "\n".join(textwrap.wrap(f"Query: {query}", width=max_chars))
+        #     fig.text(0.5, 0.91, wrapped_query, ha='center', fontsize=10, color='maroon', weight="bold")
         plt.tight_layout()
         return fig
 
@@ -223,6 +227,9 @@ if __name__ == "__main__":
             out_dir = os.path.join("data/retrieval_results", str(idx))
             os.makedirs(out_dir, exist_ok=True)
             shutil.copy(query_img_path, os.path.join(out_dir, "query_img.png"))
+            # Save the query text in a .txt file in the output directory
+            with open(os.path.join(out_dir, "query.txt"), "w", encoding="utf-8") as f:
+                f.write(query_text)
 
 
             # Text-to-Image Retrieval
