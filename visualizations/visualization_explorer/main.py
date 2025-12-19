@@ -4,10 +4,11 @@ import pandas as pd
 import numpy as np
 import umap
 from bokeh.plotting import figure, show
-from bokeh.models import ColumnDataSource, HoverTool, CustomJS, TapTool, Button, Div, LabelSet, TextInput
+from bokeh.models import ColumnDataSource, HoverTool, CustomJS, TapTool, Button, Div, LabelSet, TextInput, Select
 from bokeh.layouts import column, row
 import os
 from bokeh.io import curdoc
+import threading
 
 
 def get_split_embeddings(df, image_embeddings, text_embeddings, split_name):
@@ -25,17 +26,24 @@ def get_split_embeddings(df, image_embeddings, text_embeddings, split_name):
     return split_df.reset_index(drop=True), np.array(split_image_embeddings, dtype=object), np.array(split_text_embeddings, dtype=object)
 
 
-def load_embeddings(emb_save_path):
+def load_embeddings(emb_save_path, status_callback=None):
+    if status_callback:
+        status_callback(f"📂 Loading file: {os.path.basename(emb_save_path)}...")
+    
     if os.path.exists(emb_save_path):
         print(f"✓ Loading embeddings from {emb_save_path}")
         embeddings = np.load(emb_save_path, allow_pickle=True)
         print(f"  Contains: {len(embeddings)} embeddings.")
+        if status_callback:
+            status_callback(f"✓ Loaded {len(embeddings)} embeddings from {os.path.basename(emb_save_path)}")
         return embeddings
     else:
         print(f"✗ ERROR: Embeddings file NOT FOUND")
         print(f"  Path: {emb_save_path}")
         print(f"  Absolute: {os.path.abspath(emb_save_path)}")
         print(f"  Current working directory: {os.getcwd()}")
+        if status_callback:
+            status_callback(f"✗ File not found: {os.path.basename(emb_save_path)}")
         return None
 
 def load_data(csv_path):
@@ -43,6 +51,53 @@ def load_data(csv_path):
     if 'item_idx' not in df.columns:
         df['item_idx'] = df.index
     return df
+
+def load_and_update_plot(df, model_kind, data_type, embedding_type="text", status_callback=None):
+    """Load new embeddings and update the plot."""
+    # Handle different path structure for baseline model
+    if model_kind == "baseline":
+        emb_dir = os.path.join("..", "data", "embeddings", "baseline_clip-ViT-B-32-multilingual-v1")
+        img_emb_path = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_baseline.npy")
+        text_emb_path = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_baseline.npy")
+    else:
+        emb_dir = os.path.join("..", "data", "embeddings", f"{model_kind}_{data_type}_clip-ViT-B-32-multilingual-v1")
+        img_emb_path = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{data_type}.npy")
+        text_emb_path = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{data_type}.npy")
+    
+    print(f"\nLoading embeddings for {model_kind}/{data_type}/{embedding_type}:")
+    if status_callback:
+        status_callback(f"🔄 Loading embeddings for {model_kind}/{data_type}/{embedding_type}...")
+    
+    image_embeddings = load_embeddings(img_emb_path, status_callback)
+    text_embeddings = load_embeddings(text_emb_path, status_callback)
+    
+    if image_embeddings is None or text_embeddings is None:
+        print("Failed to load embeddings!")
+        if status_callback:
+            status_callback("✗ Failed to load embeddings!")
+        return None, None
+    
+    if status_callback:
+        status_callback(f"🔍 Filtering test split...")
+    
+    test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
+    
+    if embedding_type == "text":
+        test_emb_vectors = np.stack([e['embedding'] for e in test_txt_emb])
+        metric = 'cosine'
+    else:  # image
+        test_emb_vectors = np.stack([e['embedding'] for e in test_img_emb])
+        metric = 'euclidean'
+    
+    if status_callback:
+        status_callback(f"🎨 Computing UMAP projection ({metric} metric)...")
+    
+    umap_2d = apply_umap(test_emb_vectors, metric=metric)
+    
+    if status_callback:
+        status_callback(f"✓ Successfully computed UMAP for {len(test_df)} points")
+    
+    return umap_2d, test_df
 
 def create_id_selector(source):
     id_input = TextInput(title="Select item_idx:", placeholder="Enter item_idx...")
@@ -64,12 +119,12 @@ def create_id_selector(source):
     """))
     return id_input
 
-def apply_umap(embeddings, n_neighbors=15, min_dist=0.1):
-    umap_model = umap.UMAP(n_neighbors=n_neighbors, min_dist=min_dist, metric='cosine', random_state=42)
+def apply_umap(embeddings, n_neighbors=15, min_dist=0.1, metric='cosine'):
+    umap_model = umap.UMAP(n_neighbors=n_neighbors, min_dist=min_dist, metric=metric, random_state=42)
     umap_2d = umap_model.fit_transform(embeddings)
     return umap_2d
 
-def create_interactive_plot(umap_2d, df):
+def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_embedding):
     image_paths = df['image_path'].fillna('').tolist() if 'image_path' in df.columns else [''] * len(df)
     
     source_dict = {
@@ -155,7 +210,7 @@ def create_interactive_plot(umap_2d, df):
     taptool = TapTool(callback=callback)
     
     p = figure(
-        title="UMAP Projection of Sentence Embeddings (Image on Select)",
+        title=f"UMAP Projection: {initial_model}/{initial_data}/{initial_embedding}",
         width=800, height=600,
         tools=["pan,wheel_zoom,reset,box_zoom,save", hover, taptool],
         output_backend='webgl'
@@ -164,7 +219,7 @@ def create_interactive_plot(umap_2d, df):
     renderer = p.scatter(
         'x', 'y', source=source, size=8, alpha=0.7, color="navy",
         selection_color="orange", selection_alpha=1.0, selection_line_color="red",
-        nonselection_alpha=0.15, nonselection_color="gray",hover_color="lime", hover_alpha=1.0
+        nonselection_alpha=0.15, nonselection_color="gray", hover_color="lime", hover_alpha=1.0
     )
     
     labels = LabelSet(x='x', y='y', text='label_num', source=source,
@@ -183,7 +238,84 @@ def create_interactive_plot(umap_2d, df):
         texts_div.text = "<b>All texts for selected item_idx will appear here.</b>";
     """))
     
-    layout = column(id_input, p, clear_btn, row(image_div, texts_div))
+    # Create dropdown controls
+    model_select = Select(title="Model:", value=initial_model, 
+                         options=["baseline", "finetuned", "disentangled"], width=150)
+    data_select = Select(title="Data Type:", value=initial_data,
+                        options=["default", "grouped"], width=150)
+    embedding_select = Select(title="Embedding Type:", value=initial_embedding,
+                             options=["text", "image"], width=150)
+    
+    update_btn = Button(label="Load Embeddings", button_type="success", width=150)
+    status_div = Div(text=f"Currently showing: {initial_model}/{initial_data}/{initial_embedding}", width=800)
+    status_div.styles = {"padding": "10px", "background-color": "#f0f0f0", "border": "1px solid #ccc", "border-radius": "5px"}
+    
+    # Store the original CSV dataframe globally for reloading
+    csv_df = load_data(os.path.join("visualization_explorer", "static", "test_metadata.csv"))
+    
+    def update_status(message):
+        """Helper function to update status div from callback"""
+        status_div.text = f"<div style='font-size: 14px;'>{message}</div>"
+    
+    def update_plot():
+        model_kind = model_select.value
+        data_type = data_select.value
+        embedding_type = embedding_select.value
+        
+        # Disable data_type selector for baseline
+        if model_kind == "baseline":
+            data_type = "default"  # baseline doesn't use data_type
+        
+        # Disable button during loading
+        update_btn.disabled = True
+        update_btn.label = "Loading..."
+        update_status(f"🔄 Starting to load {model_kind}/{data_type}/{embedding_type}...")
+        
+        try:
+            new_umap_2d, new_df = load_and_update_plot(csv_df, model_kind, data_type, embedding_type, 
+                                                       status_callback=update_status)
+            
+            if new_umap_2d is not None:
+                update_status("📊 Updating plot...")
+                
+                # Update source data
+                new_image_paths = new_df['image_path'].fillna('').tolist() if 'image_path' in new_df.columns else [''] * len(new_df)
+                source.data = {
+                    'x': new_umap_2d[:, 0],
+                    'y': new_umap_2d[:, 1],
+                    'text': new_df['text'].tolist(),
+                    'item_idx': new_df['item_idx'].tolist(),
+                    'image_path': new_image_paths,
+                    'label_num': [''] * len(new_df)
+                }
+                
+                # Update title based on model type
+                if model_kind == "baseline":
+                    p.title.text = f"UMAP Projection: {model_kind}/{embedding_type}"
+                else:
+                    p.title.text = f"UMAP Projection: {model_kind}/{data_type}/{embedding_type}"
+                
+                update_status(f"✅ Successfully loaded {model_kind}/{data_type}/{embedding_type} ({len(new_df)} points)")
+                
+                # Clear selections and divs
+                image_div.text = "Click a point to see the image for the selected embedding."
+                texts_div.text = "<b>All texts for selected item_idx will appear here.</b>"
+            else:
+                update_status("❌ Failed to load embeddings. Check console for details.")
+        except Exception as e:
+            update_status(f"❌ Error: {str(e)}")
+            print(f"Error loading embeddings: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # Re-enable button
+            update_btn.disabled = False
+            update_btn.label = "Load Embeddings"
+    
+    update_btn.on_click(update_plot)
+    
+    controls = row(model_select, data_select, embedding_select, update_btn)
+    layout = column(controls, status_div, id_input, p, clear_btn, row(image_div, texts_div))
     return layout
 
 
@@ -193,26 +325,25 @@ print(f"Current working directory: {os.getcwd()}")
 csv_path = os.path.join("visualization_explorer", "static", "test_metadata.csv")
 df = load_data(csv_path)
 
-model_kind = "disentangled"  # "pretrained" or "finetuned", "disentangled"
-data_type = "default" # "default" or "grouped"
+# Initial settings
+model_kind = "disentangled"  # "baseline", "finetuned", or "disentangled"
+data_type = "default"  # "default" or "grouped"
+embedding_type = "text"  # "text" or "image"
 
-# Go up one level (..) from visualizations/ to reach repo root, then into data/
-emb_dir = os.path.join("..", "data", "embeddings", f"{model_kind}_{data_type}_clip-ViT-B-32-multilingual-v1")
+print(f"\nInitial load: {model_kind}/{data_type}/{embedding_type}")
+print("🔄 Loading initial embeddings...")
 
-img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{data_type}.npy")
-text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{data_type}.npy")
+def initial_status_print(message):
+    print(message)
 
-print(f"\nLoading embeddings:")
-image_embeddings = load_embeddings(img_emb_path_all)
-text_embeddings = load_embeddings(text_emb_path_all)
+umap_2d, test_df = load_and_update_plot(df, model_kind, data_type, embedding_type, 
+                                        status_callback=initial_status_print)
 
-if image_embeddings is None or text_embeddings is None:
-    raise FileNotFoundError("Could not load embeddings. Check paths above.")
-
-# Get test split
-test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
-test_txt_emb_vectors = np.stack([e['embedding'] for e in test_txt_emb])
-
-umap_2d = apply_umap(test_txt_emb_vectors)
-layout = create_interactive_plot(umap_2d, test_df)
-curdoc().add_root(layout)
+if umap_2d is not None:
+    print("✅ Initial embeddings loaded successfully!")
+    layout = create_interactive_plot(umap_2d, test_df, model_kind, data_type, embedding_type)
+    curdoc().add_root(layout)
+else:
+    print("❌ Failed to create initial plot!")
+    error_div = Div(text="<h2>Error: Failed to load initial embeddings. Check console.</h2>")
+    curdoc().add_root(error_div)
