@@ -8,7 +8,6 @@ from bokeh.models import ColumnDataSource, HoverTool, CustomJS, TapTool, Button,
 from bokeh.layouts import column, row
 import os
 from bokeh.io import curdoc
-import threading
 
 
 def get_split_embeddings(df, image_embeddings, text_embeddings, split_name):
@@ -99,23 +98,62 @@ def load_and_update_plot(df, model_kind, data_type, embedding_type="text", statu
     
     return umap_2d, test_df
 
-def create_id_selector(source):
+def create_id_selector(source, image_div, texts_div):
     id_input = TextInput(title="Select item_idx:", placeholder="Enter item_idx...")
-    id_input.js_on_change("value", CustomJS(args=dict(source=source), code="""
-        const val = cb_obj.value;
+    id_input.js_on_change("value", CustomJS(args=dict(source=source, image_div=image_div, texts_div=texts_div), code="""
+        const val = cb_obj.value.trim();
         if (!val) {
             source.selected.indices = [];
+            for (let i = 0; i < source.data['label_num'].length; i++) {
+                source.data['label_num'][i] = '';
+            }
             source.change.emit();
+            image_div.text = "Click a point to see the image for the selected embedding.";
+            texts_div.text = "<b>All texts for selected item_idx will appear here.</b>";
             return;
         }
         const indices = [];
+        let label_counter = 1;
+        let sentences = [];
+        let last_image_path = "";
+        
         for (let i = 0; i < source.data['item_idx'].length; i++) {
             if (source.data['item_idx'][i].toString() === val) {
                 indices.push(i);
+                source.data['label_num'][i] = label_counter.toString();
+                sentences.push(label_counter + ". " + source.data['text'][i]);
+                if (source.data['image_path'][i]) {
+                    last_image_path = source.data['image_path'][i];
+                }
+                label_counter++;
+            } else {
+                source.data['label_num'][i] = '';
             }
         }
         source.selected.indices = indices;
         source.change.emit();
+        
+        // Update texts div
+        if (indices.length > 0) {
+            let texts_html = "<b>Sentences for item_idx " + val + ":</b><ul>";
+            for (let s of sentences) {
+                texts_html += "<li>" + s + "</li>";
+            }
+            texts_html += "</ul>";
+            texts_div.text = texts_html;
+            
+            // Update image div
+            let image_html = "<b>Image for selected embedding group:</b><br><code>" + last_image_path + "</code>";
+            if (last_image_path) {
+                image_html += `<br><img src='${last_image_path}' width='300' style='margin-top:10px;'>`;
+            } else {
+                image_html += "<br><span style='color:red'>Image not found or could not be loaded.</span>";
+            }
+            image_div.text = image_html;
+        } else {
+            image_div.text = "No matching item_idx found.";
+            texts_div.text = "<b>No matching item_idx found.</b>";
+        }
     """))
     return id_input
 
@@ -138,19 +176,19 @@ def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_em
     
     source = ColumnDataSource(data=source_dict)
     
-    id_input = create_id_selector(source)
+    image_div = Div(text="Click a point to see the image for the selected embedding.", width=400, height=340)
+    texts_div = Div(text="<b>All texts for selected item_idx will appear here.</b>", width=400, height=340)
+    texts_div.styles = {"overflow-y": "auto", "border": "1px solid #ccc", "padding": "8px"}
+    
+    id_input = create_id_selector(source, image_div, texts_div)
     
     hover = HoverTool(tooltips=[
         ("item_idx", "@item_idx"),
         ("text", "@text"),
         ("image_path", "@image_path"),
     ], mode='mouse') 
-    
-    image_div = Div(text="Click a point to see the image for the selected embedding.", width=400, height=340)
-    texts_div = Div(text="<b>All texts for selected item_idx will appear here.</b>", width=400, height=340)
-    texts_div.styles = {"overflow-y": "auto", "border": "1px solid #ccc", "padding": "8px"}
 
-    callback = CustomJS(args=dict(source=source, image_div=image_div, texts_div=texts_div), code="""
+    callback = CustomJS(args=dict(source=source, image_div=image_div, texts_div=texts_div, id_input=id_input), code="""
         const indices = cb_data.source.selected.indices;
         if (indices.length === 0) {
             source.selected.indices = [];
@@ -161,9 +199,14 @@ def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_em
             source.change.emit();
             image_div.text = "Click a point to see the image for the selected embedding.";
             texts_div.text = "<b>All texts for selected item_idx will appear here.</b>";
+            id_input.value = "";
             return;
         }
         const item_idx = source.data['item_idx'][indices[0]];
+        
+        // Update the text input to show the selected item_idx
+        id_input.value = item_idx.toString();
+        
         const all_indices = [];
         let sentences = [];
         let last_image_path = "";
@@ -228,12 +271,13 @@ def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_em
     p.add_layout(labels)
     
     clear_btn = Button(label="Clear Selection", button_type="default", width=150)
-    clear_btn.js_on_click(CustomJS(args=dict(source=source, image_div=image_div, texts_div=texts_div), code="""
+    clear_btn.js_on_click(CustomJS(args=dict(source=source, image_div=image_div, texts_div=texts_div, id_input=id_input), code="""
         source.selected.indices = [];
         for (let i = 0; i < source.data['label_num'].length; i++) {
             source.data['label_num'][i] = '';
         }
         source.change.emit();
+        id_input.value = "";
         image_div.text = "Click a point to see the image for the selected embedding.";
         texts_div.text = "<b>All texts for selected item_idx will appear here.</b>";
     """))
@@ -257,6 +301,63 @@ def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_em
         """Helper function to update status div from callback"""
         status_div.text = f"<div style='font-size: 14px;'>{message}</div>"
     
+    def async_load_embeddings(model_kind, data_type, embedding_type):
+        """The actual loading function that runs asynchronously"""
+        try:
+            new_umap_2d, new_df = load_and_update_plot(csv_df, model_kind, data_type, embedding_type, 
+                                                       status_callback=lambda msg: curdoc().add_next_tick_callback(lambda: update_status(msg)))
+            
+            if new_umap_2d is not None:
+                def update_visualization():
+                    update_status("📊 Updating plot...")
+                    
+                    # Update source data
+                    new_image_paths = new_df['image_path'].fillna('').tolist() if 'image_path' in new_df.columns else [''] * len(new_df)
+                    source.data = {
+                        'x': new_umap_2d[:, 0],
+                        'y': new_umap_2d[:, 1],
+                        'text': new_df['text'].tolist(),
+                        'item_idx': new_df['item_idx'].tolist(),
+                        'image_path': new_image_paths,
+                        'label_num': [''] * len(new_df)
+                    }
+                    
+                    # Update title based on model type
+                    if model_kind == "baseline":
+                        p.title.text = f"UMAP Projection: {model_kind}/{embedding_type}"
+                    else:
+                        p.title.text = f"UMAP Projection: {model_kind}/{data_type}/{embedding_type}"
+                    
+                    update_status(f"✅ Successfully loaded {model_kind}/{data_type}/{embedding_type} ({len(new_df)} points)")
+                    
+                    # Clear selections and divs
+                    id_input.value = ""
+                    image_div.text = "Click a point to see the image for the selected embedding."
+                    texts_div.text = "<b>All texts for selected item_idx will appear here.</b>"
+                    
+                    # Re-enable button
+                    update_btn.disabled = False
+                    update_btn.label = "Load Embeddings"
+                
+                curdoc().add_next_tick_callback(update_visualization)
+            else:
+                def show_error():
+                    update_status("❌ Failed to load embeddings. Check console for details.")
+                    update_btn.disabled = False
+                    update_btn.label = "Load Embeddings"
+                
+                curdoc().add_next_tick_callback(show_error)
+        except Exception as e:
+            def show_exception():
+                update_status(f"❌ Error: {str(e)}")
+                update_btn.disabled = False
+                update_btn.label = "Load Embeddings"
+            
+            print(f"Error loading embeddings: {e}")
+            import traceback
+            traceback.print_exc()
+            curdoc().add_next_tick_callback(show_exception)
+    
     def update_plot():
         model_kind = model_select.value
         data_type = data_select.value
@@ -271,46 +372,8 @@ def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_em
         update_btn.label = "Loading..."
         update_status(f"🔄 Starting to load {model_kind}/{data_type}/{embedding_type}...")
         
-        try:
-            new_umap_2d, new_df = load_and_update_plot(csv_df, model_kind, data_type, embedding_type, 
-                                                       status_callback=update_status)
-            
-            if new_umap_2d is not None:
-                update_status("📊 Updating plot...")
-                
-                # Update source data
-                new_image_paths = new_df['image_path'].fillna('').tolist() if 'image_path' in new_df.columns else [''] * len(new_df)
-                source.data = {
-                    'x': new_umap_2d[:, 0],
-                    'y': new_umap_2d[:, 1],
-                    'text': new_df['text'].tolist(),
-                    'item_idx': new_df['item_idx'].tolist(),
-                    'image_path': new_image_paths,
-                    'label_num': [''] * len(new_df)
-                }
-                
-                # Update title based on model type
-                if model_kind == "baseline":
-                    p.title.text = f"UMAP Projection: {model_kind}/{embedding_type}"
-                else:
-                    p.title.text = f"UMAP Projection: {model_kind}/{data_type}/{embedding_type}"
-                
-                update_status(f"✅ Successfully loaded {model_kind}/{data_type}/{embedding_type} ({len(new_df)} points)")
-                
-                # Clear selections and divs
-                image_div.text = "Click a point to see the image for the selected embedding."
-                texts_div.text = "<b>All texts for selected item_idx will appear here.</b>"
-            else:
-                update_status("❌ Failed to load embeddings. Check console for details.")
-        except Exception as e:
-            update_status(f"❌ Error: {str(e)}")
-            print(f"Error loading embeddings: {e}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            # Re-enable button
-            update_btn.disabled = False
-            update_btn.label = "Load Embeddings"
+        # Schedule the async loading
+        curdoc().add_next_tick_callback(lambda: async_load_embeddings(model_kind, data_type, embedding_type))
     
     update_btn.on_click(update_plot)
     
