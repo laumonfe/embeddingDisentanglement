@@ -169,9 +169,9 @@ if __name__ == "__main__":
     parser.add_argument("--output_directory", type=str, default=None, help="Directory to save the trained model and logs.")
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate for the optimizer.")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size for training.")  
-    parser.add_argument("--num_epochs", type=int, default=100, help="Number of training epochs.")
+    parser.add_argument("--num_epochs", type=int, default=20, help="Number of training epochs.")
     parser.add_argument("--save_every", type=int, default=10, help="Save model every N epochs.")
-    parser.add_argument("--patience", type=int, default=3, help="Patience for early stopping.")
+    parser.add_argument("--patience", type=int, default=10000, help="Patience for early stopping.")
     parser.add_argument("--dataset_type", type=str, choices=["default", "grouped"], default="default", help="Type of dataset grouping: default or grouped")
     args = parser.parse_args()
 

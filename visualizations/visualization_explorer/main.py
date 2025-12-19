@@ -9,14 +9,33 @@ from bokeh.layouts import column, row
 import os
 from bokeh.io import curdoc
 
+
+def get_split_embeddings(df, image_embeddings, text_embeddings, split_name):
+    """
+    Returns filtered DataFrame and corresponding image/text embeddings for a given split.
+    Matches both 'idx' and 'desc_idx'.
+    """
+    if image_embeddings is None or text_embeddings is None:
+        raise ValueError("Embeddings are None. Check that files were loaded correctly.")
+    
+    split_df = df[df["split"] == split_name]
+    split_keys = set(zip(split_df["item_idx"], split_df["desc_idx"]))
+    split_image_embeddings = [e for e in image_embeddings if (e['idx'], e['desc_idx']) in split_keys]
+    split_text_embeddings = [e for e in text_embeddings if (e['idx'], e['desc_idx']) in split_keys]
+    return split_df.reset_index(drop=True), np.array(split_image_embeddings, dtype=object), np.array(split_text_embeddings, dtype=object)
+
+
 def load_embeddings(emb_save_path):
     if os.path.exists(emb_save_path):
-        print(f"Loading embeddings from {emb_save_path}")
+        print(f"✓ Loading embeddings from {emb_save_path}")
         embeddings = np.load(emb_save_path, allow_pickle=True)
-        print("Contains:", len(embeddings) , "embeddings.")
+        print(f"  Contains: {len(embeddings)} embeddings.")
         return embeddings
     else:
-        print(f"Embeddings file {emb_save_path} not found.")
+        print(f"✗ ERROR: Embeddings file NOT FOUND")
+        print(f"  Path: {emb_save_path}")
+        print(f"  Absolute: {os.path.abspath(emb_save_path)}")
+        print(f"  Current working directory: {os.getcwd()}")
         return None
 
 def load_data(csv_path):
@@ -168,26 +187,31 @@ def create_interactive_plot(umap_2d, df):
     return layout
 
 
+print(f"Current working directory: {os.getcwd()}")
 
-csv_path = "data/feidegger_metadata.csv"
+# Paths relative to visualizations/ directory (where bokeh serve is run from)
+csv_path = os.path.join("visualization_explorer", "static", "test_metadata.csv")
 df = load_data(csv_path)
 
 model_kind = "disentangled"  # "pretrained" or "finetuned", "disentangled"
 data_type = "default" # "default" or "grouped"
-emb_dir = os.path.join("data", "embeddings", f"{model_kind}_{data_type}_clip-ViT-B-32-multilingual-v1")
-from visualizations.retrieval_visualization import get_split_embeddings
 
-# embeddings = load#compute_embeddings(df)
+# Go up one level (..) from visualizations/ to reach repo root, then into data/
+emb_dir = os.path.join("..", "data", "embeddings", f"{model_kind}_{data_type}_clip-ViT-B-32-multilingual-v1")
+
 img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{data_type}.npy")
 text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{data_type}.npy")
 
-print(img_emb_path_all)
+print(f"\nLoading embeddings:")
 image_embeddings = load_embeddings(img_emb_path_all)
 text_embeddings = load_embeddings(text_emb_path_all)
-# alternatevly, get a subset of a specific split
+
+if image_embeddings is None or text_embeddings is None:
+    raise FileNotFoundError("Could not load embeddings. Check paths above.")
+
+# Get test split
 test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
 test_txt_emb_vectors = np.stack([e['embedding'] for e in test_txt_emb])
-
 
 umap_2d = apply_umap(test_txt_emb_vectors)
 layout = create_interactive_plot(umap_2d, test_df)

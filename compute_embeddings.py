@@ -54,7 +54,7 @@ def get_default_paths(model_kind, dataset_type, device):
         img_emb_path = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
         txt_emb_path = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
     else:
-        base = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip"
+        base = f"output/{model_kind}_{dataset_type}_clip"
         img_model_path = os.path.join(base, "epoch_20", "vision_encoder")
         txt_model_path = os.path.join(base, "epoch_20", "text_encoder")
         img_encoder = ProjectedCLIPVision(img_model_path, device)
@@ -76,6 +76,7 @@ if __name__ == "__main__":
     
     CSV_PATH = args.csv_path
     df = pd.read_csv(CSV_PATH)
+    df =  df[df["split"] == "test"]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if args.model_kind == "all":

@@ -76,3 +76,58 @@ def group_by_image(df):
     for idx, row in df.iterrows():
         grouped[row['image_path']].append(row)
     return list(grouped.values())
+
+
+
+
+# Add this block at the end of the file
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    from PIL import Image
+    import os 
+    from src.models import PretrainedCLIPVision, PretrainedDistilBert
+    CSV_PATH = r"data/feidegger_metadata.csv"
+    pretrained_dir = "pretrained_models"
+    from src.train_clip import collate_fn
+
+
+    import pandas as pd
+    from torch.utils.data import DataLoader
+
+    df = pd.read_csv(CSV_PATH)
+
+    test_df = df[df["split"] == "test"]
+
+    # Use GPU if available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+    # Load pretrained models
+    pretrained_img_model_path = os.path.join(pretrained_dir, "sentence-transformers--clip-ViT-B-32")
+    pretrained_text_model_path = os.path.join(pretrained_dir, "sentence-transformers--clip-ViT-B-32-multilingual-v1")
+
+    image_encoder = PretrainedCLIPVision(pretrained_img_model_path, device)
+    text_encoder = PretrainedDistilBert(pretrained_text_model_path, device)
+    
+    test_dataset = CLIPDataset(test_df, image_encoder.processor,  text_encoder.tokenizer)
+    test_loader = DataLoader(test_dataset, batch_size=10, shuffle=True, collate_fn=collate_fn)
+
+    batch = next(iter(test_loader))
+    #print(batch)
+    # Processed image tensor
+    img_tensor = batch["pixel_values"][5].cpu()
+    mean = [0.48145466, 0.4578275, 0.40821073]
+    std = [0.26862954, 0.26130258, 0.27577711]
+    img_disp = img_tensor.clone()
+    for c in range(3):
+        img_disp[c] = img_disp[c] * std[c] + mean[c]
+    img_disp = img_disp.clamp(0, 1)
+    img_np = img_disp.permute(1, 2, 0).numpy()  # Convert to HWC for matplotlib
+
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.title("Processed Image (matplotlib)")
+    plt.imshow(img_np)
+    plt.axis('off')
+    plt.show()
+# limitations :( 

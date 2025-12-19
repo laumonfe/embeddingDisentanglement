@@ -63,14 +63,17 @@ def create_fiftyone_dataset_for_embeddings(model_kind, data_type, emb_dir):
             dataset,
             embeddings=np.array([s.text_embedding for s in dataset]),
             brain_key="text_embedding_viz",
-            method="umap"
+            method="umap", 
+            metric="cosine"
+
         )
     if "image_embedding_viz" not in dataset.list_brain_runs():
         fob.compute_visualization(
             dataset,
             embeddings=np.array([s.image_embedding for s in dataset]),
             brain_key="image_embedding_viz",
-            method="umap"
+            method="umap", 
+            metric="cosine"
         )
     return dataset
 
