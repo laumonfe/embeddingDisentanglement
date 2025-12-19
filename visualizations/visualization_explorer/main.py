@@ -135,20 +135,21 @@ def create_id_selector(source, image_div, texts_div):
         
         // Update texts div
         if (indices.length > 0) {
-            let texts_html = "<b>Sentences for item_idx " + val + ":</b><ul>";
+            let texts_html = "<div style='font-size: 14px;'><b>Sentences for item_idx " + val + ":</b><ul>";
             for (let s of sentences) {
-                texts_html += "<li>" + s + "</li>";
+                texts_html += "<li style='margin-bottom: 8px;'>" + s + "</li>";
             }
-            texts_html += "</ul>";
+            texts_html += "</ul></div>";
             texts_div.text = texts_html;
             
             // Update image div
-            let image_html = "<b>Image for selected embedding group:</b><br><code>" + last_image_path + "</code>";
+            let image_html = "<div style='font-size: 14px;'><b>Image for selected embedding group:</b><br><code>" + last_image_path + "</code>";
             if (last_image_path) {
                 image_html += `<br><img src='${last_image_path}' width='300' style='margin-top:10px;'>`;
             } else {
                 image_html += "<br><span style='color:red'>Image not found or could not be loaded.</span>";
             }
+            image_html += "</div>";
             image_div.text = image_html;
         } else {
             image_div.text = "No matching item_idx found.";
