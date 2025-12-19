@@ -176,17 +176,13 @@ def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_em
     
     source = ColumnDataSource(data=source_dict)
     
-    image_div = Div(text="Click a point to see the image for the selected embedding.", width=400, height=340)
-    texts_div = Div(text="<b>All texts for selected item_idx will appear here.</b>", width=400, height=340)
-    texts_div.styles = {"overflow-y": "auto", "border": "1px solid #ccc", "padding": "8px"}
+    image_div = Div(text="Click a point to see the image for the selected embedding.", width=450, height=800)
+    image_div.styles = {"border": "1px solid #ccc", "padding": "10px"}
+    
+    texts_div = Div(text="<b>All texts for selected item_idx will appear here.</b>", width=450, height=800)
+    texts_div.styles = {"overflow-y": "auto", "border": "1px solid #ccc", "padding": "10px"}
     
     id_input = create_id_selector(source, image_div, texts_div)
-    
-    hover = HoverTool(tooltips=[
-        ("item_idx", "@item_idx"),
-        ("text", "@text"),
-        ("image_path", "@image_path"),
-    ], mode='mouse') 
 
     callback = CustomJS(args=dict(source=source, image_div=image_div, texts_div=texts_div, id_input=id_input), code="""
         const indices = cb_data.source.selected.indices;
@@ -233,20 +229,21 @@ def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_em
         source.change.emit();
 
         // Format sentences for display
-        let texts_html = "<b>Sentences for item_idx " + item_idx + ":</b><ul>";
+        let texts_html = "<div style='padding: 10px;'><b>Sentences for item_idx " + item_idx + ":</b><ul style='margin-top: 10px;'>";
         for (let s of sentences) {
-            texts_html += "<li>" + s + "</li>";
+            texts_html += "<li style='margin-bottom: 8px;'>" + s + "</li>";
         }
-        texts_html += "</ul>";
+        texts_html += "</ul></div>";
         texts_div.text = texts_html;
 
         // Show image for the group
-        let image_html = "<b>Image for selected embedding group:</b><br><code>" + last_image_path + "</code>";
+        let image_html = "<div style='padding: 10px;'><b>Image for item_idx " + item_idx + ":</b><br><code style='font-size: 11px;'>" + last_image_path + "</code>";
         if (last_image_path) {
-            image_html += `<br><img src='${last_image_path}' width='300' style='margin-top:10px;'>`;
+            image_html += `<br><img src='${last_image_path}' style='max-width: 100%; margin-top:10px;'>`;
         } else {
             image_html += "<br><span style='color:red'>Image not found or could not be loaded.</span>";
         }
+        image_html += "</div>";
         image_div.text = image_html;
     """)
 
@@ -254,8 +251,8 @@ def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_em
     
     p = figure(
         title=f"UMAP Projection: {initial_model}/{initial_data}/{initial_embedding}",
-        width=800, height=600,
-        tools=["pan,wheel_zoom,reset,box_zoom,save", hover, taptool],
+        width=900, height=800,
+        tools=["pan,wheel_zoom,reset,box_zoom,save", taptool],
         output_backend='webgl'
     )
     
@@ -291,7 +288,7 @@ def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_em
                              options=["text", "image"], width=150)
     
     update_btn = Button(label="Load Embeddings", button_type="success", width=150)
-    status_div = Div(text=f"Currently showing: {initial_model}/{initial_data}/{initial_embedding}", width=800)
+    status_div = Div(text=f"Currently showing: {initial_model}/{initial_data}/{initial_embedding}", width=1800)
     status_div.styles = {"padding": "10px", "background-color": "#f0f0f0", "border": "1px solid #ccc", "border-radius": "5px"}
     
     # Store the original CSV dataframe globally for reloading
@@ -377,8 +374,20 @@ def create_interactive_plot(umap_2d, df, initial_model, initial_data, initial_em
     
     update_btn.on_click(update_plot)
     
+    # Layout structure: controls at top, then status, then main content in a row
     controls = row(model_select, data_select, embedding_select, update_btn)
-    layout = column(controls, status_div, id_input, p, clear_btn, row(image_div, texts_div))
+    
+    # Left side: plot controls and plot
+    left_panel = column(id_input, p, clear_btn)
+    
+    # Right side: image and texts side by side
+    right_panel = row(image_div, texts_div)
+    
+    # Main content row with plot on left and info on right
+    main_content = row(left_panel, right_panel)
+    
+    # Full layout
+    layout = column(controls, status_div, main_content)
     return layout
 
 
