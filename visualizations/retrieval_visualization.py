@@ -100,74 +100,16 @@ def get_split_embeddings(df, image_embeddings, text_embeddings, split_name):
     split_text_embeddings = [e for e in text_embeddings if (e['idx'], e['desc_idx']) in split_keys]
     return split_df.reset_index(drop=True), np.array(split_image_embeddings, dtype=object), np.array(split_text_embeddings, dtype=object)
 
-def save_retrieval_plots(fig, out_dir, model_kind, dataset_type, mode):
-    fname = f"{mode}_{model_kind}_{dataset_type}.png"
+def save_retrieval_plots(fig, out_dir, model_kind, dataset_type, mode, idx):
+    fname = f"{mode}_{model_kind}_{dataset_type}_{idx}.png"
     fig.savefig(os.path.join(out_dir, fname), bbox_inches='tight')
     plt.close(fig)
 
 if __name__ == "__main__":
-    #query = "ein wunderschönes und sehr festliches langes Kleid" # "a beautiful and very festive long dress"
-    #query = "ein kurzes schwarzes Kleid"  # a short black dress
-    #query = "ein glitzerndes und schickes Kleid"  # a glitter and fancy dress
-    #query = "ein grünes Samtkleid mit V-Ausschnitt und langen Ärmeln" #"a velvet green dress with a V-neck and long sleeves" 
-    #"spring dress perfect for a picnic date"  
-    # #"a red dress with floral pattern"
-
-    # query = "A dress that whispers rebellion."
-
-
-    # model_kind = "finetuned"  # "pretrained" or "finetuned"
-    # emb_dir = rf"data\embeddings\{model_kind}_clip-ViT-B-32-multilingual-v1"
-    
+   
+    import shutil
     CSV_PATH = r"data/feidegger_metadata.csv"
     df = pd.read_csv(CSV_PATH)
-
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}.npy")
-    # text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}.npy")
-
-    # if model_kind == "baseline":
-    #     # Paths to pretrained models
-    #     pretrained_img_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32"
-    #     pretrained_text_model_path = r"pretrained_models/sentence-transformers--clip-ViT-B-32-multilingual-v1"
-    #     image_encoder = PretrainedCLIPVision(pretrained_img_model_path, device)
-    #     text_encoder = PretrainedDistilBert(pretrained_text_model_path, device)
-
-    # if model_kind == "finetuned":
-    #     # Paths to finetuned models
-    #     finetuned_text_model_path = r"output/finetuned_baseline/best_model/text_encoder"
-    #     finetuned_img_model_path = r"output/finetuned_baseline/best_model/vision_encoder"
-    #     image_encoder = ProjectedCLIPVision(finetuned_img_model_path, device)
-    #     text_encoder = ProjectedDistilBert(finetuned_text_model_path, device)
-
-
-    
-    # image_embeddings = load_embeddings(img_emb_path_all)
-    # text_embeddings = load_embeddings(text_emb_path_all)
-    # # alternatevly, get a subset of a specific split
-    # test_df, test_img_emb, test_txt_emb = get_split_embeddings(df, image_embeddings, text_embeddings, "test")
-
-    # #query = "red dress"
-    # id = 42
-    # query = test_df.iloc[id]['text']
-    # gt_img = test_df.iloc[id]['image_path']
-    # plt.imshow(Image.open(gt_img))
-
-    # ########### Same Query Only in the test split ###########
-    # print("Text-to-Image Retrieval Example Test:")
-    # results = retrieve_images_by_text(query, text_encoder, test_img_emb, test_df,  top_k=5)
-    # plot_images(results, "Text-to-Image Retrieval (M-CLIP)", query=query, query_type="text")
-
-    # print("\nImage-to-Image Retrieval Example Test:")
-    # example_image = results[0][0]
-    # print(f"Using example image: {example_image}")
-    # results = retrieve_images_by_image(example_image, image_encoder, test_img_emb, test_df, top_k=5)
-    # plot_images(results, "Image-to-Image Retrieval (M-CLIP)", query=example_image, query_type="image")
-
-    # List of 10 test IDs (you can customize these)
-    import shutil
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -197,8 +139,8 @@ if __name__ == "__main__":
                 emb_dir = f"data/embeddings/{model_kind}_{dataset_type}_clip-ViT-B-32-multilingual-v1"
                 img_emb_path_all = os.path.join(emb_dir, f"image_embeddings_clip-ViT-B-32_{model_kind}_{dataset_type}.npy")
                 text_emb_path_all = os.path.join(emb_dir, f"text_embeddings_clip-ViT-B-32-multilingual-v1_{model_kind}_{dataset_type}.npy")
-                img_model_path = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip/epoch_20/vision_encoder"
-                txt_model_path = f"/mnt/netstorage/projects/clip/{model_kind}_{dataset_type}_clip/epoch_20/text_encoder"
+                img_model_path = f"output/{model_kind}_{dataset_type}_clip/epoch_20/vision_encoder"
+                txt_model_path = f"output/{model_kind}_{dataset_type}_clip/epoch_20/text_encoder"
                 image_encoder = ProjectedCLIPVision(img_model_path, device)
                 text_encoder = ProjectedDistilBert(txt_model_path, device)
         except Exception as e:
@@ -216,8 +158,8 @@ if __name__ == "__main__":
             print(f"Failed to get split embeddings for {model_kind}, {dataset_type}: {e}")
             continue
         
-        np.random.seed(42)
-        test_ids = random_ints = np.random.choice(np.arange(0, len(test_df)), size=10, replace=False)
+        np.random.seed(666)
+        test_ids = random_ints = np.random.choice(np.arange(0, len(test_df)), size=30, replace=False)
 
         for idx in test_ids:
 
@@ -226,7 +168,7 @@ if __name__ == "__main__":
 
             out_dir = os.path.join("data/retrieval_results", str(idx))
             os.makedirs(out_dir, exist_ok=True)
-            shutil.copy(query_img_path, os.path.join(out_dir, "query_img.png"))
+            shutil.copy(query_img_path, os.path.join(out_dir, F"query_img_{idx}.png"))
             # Save the query text in a .txt file in the output directory
             with open(os.path.join(out_dir, "query.txt"), "w", encoding="utf-8") as f:
                 f.write(query_text)
@@ -235,26 +177,13 @@ if __name__ == "__main__":
             # Text-to-Image Retrieval
             text2image_results = retrieve_images_by_text(query_text, text_encoder, test_img_emb, test_df, top_k=5)
             text2image = plot_images(text2image_results, "Text-to-Image Retrieval (M-CLIP)", query=query_text, query_type="text")
-            save_retrieval_plots(text2image, out_dir, model_kind, dataset_type, "text2img")
+            save_retrieval_plots(text2image, out_dir, model_kind, dataset_type, "text2img", idx)
 
 
             # Image-to-Image Retrieval
             best_match_image = text2image_results[0][0]
             image2image_results = retrieve_images_by_image(best_match_image, image_encoder, test_img_emb, test_df, top_k=5)
             image2image= plot_images(image2image_results, "Image-to-Image Retrieval (M-CLIP)", query=best_match_image, query_type="image")
-            save_retrieval_plots(image2image, out_dir, model_kind, dataset_type, "img2img")
+            save_retrieval_plots(image2image, out_dir, model_kind, dataset_type, "img2img", idx)
 
 
-        # i2i_dir = f"retrieval_results/{model_kind}_{dataset_type}/query_{idx}/image_to_image"
-        # save_retrieved_images(i2i_results, i2i_dir, "i2i")
-
-        # # Image-to-Image Retrieval
-        # i2i_results = retrieve_images_by_image(query_img_path, image_encoder, test_img_emb, test_df, top_k=5)
-        # i2i_dir = f"retrieval_results/{model_kind}_{dataset_type}/query_{idx}/image_to_image"
-        # save_retrieved_images(i2i_results, i2i_dir, "i2i")
-
-        # # Optionally, also save the query image for reference
-        # try:
-        #     shutil.copy(query_img_path, f"retrieval_results/{model_kind}_{dataset_type}/query_{idx}/query_image.jpg")
-        # except Exception as e:
-        #     print(f"Could not copy query image {query_img_path}: {e}")
